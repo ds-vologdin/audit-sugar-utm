@@ -121,9 +121,9 @@ def fetch_pays_from_utm(db, date_begin, date_end):
 sum(payment_absolute), count(payment_absolute)
 FROM payment_transactions
 WHERE to_timestamp(payment_enter_date)>='%s'
-and to_timestamp(payment_enter_date)<'%s' and method = 5
-group by datep
-order by datep''' % (date_begin, date_end + timedelta(days=1))
+AND to_timestamp(payment_enter_date)<'%s' AND method = 5
+GROUP BY datep
+ORDER BY datep''' % (date_begin, date_end + timedelta(days=1))
     pays_lists = db.sqlQuery(sql)
 
     pays_dicts = [
