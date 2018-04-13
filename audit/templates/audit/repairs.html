@@ -1,0 +1,174 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<h1>Отчёт по выполненным ремонтам за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+<p>Всего выполнено ремонтов: {{ repairs|length }}</p>
+{% if repairs_man_stat %}
+    <div class="row">
+        <h2>Статистика выполненных ремонтов по исполнителям</h2>
+        <canvas id="stat_period" width="400" height="150"></canvas>
+    </div>
+    <p></p>
+{% endif %}
+{% if repairs_cat_work_stat %}
+    <div class="row">
+        <h2>Статистика выполненных ремонтов по типам работ</h2>
+        <canvas id="cat_work_stat_period" width="400" height="150"></canvas>
+    </div>
+    <p></p>
+{% endif %}
+{% if repairs|length < 60 %}
+    <table class="table table-hover">
+        <thead>
+        <tr>
+            <th class="text-center">Абонент</th>
+            <th class="text-center">Название</th>
+            <th class="text-center">Описание</th>
+            <th class="text-center">Комментарии</th>
+            <th class="text-center">Статус</th>
+            <th class="text-center">Дата</th>
+            <th class="text-center">Исполнитель</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for repair in repairs%}
+            <tr>
+                <td><a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ repair.account_id }}">{{ repair.account }} - {{ repair.address }}</a></td>
+                <td>
+                    <a href="http://crm.kgts.su/sugarcrm/index.php?module=rep_Repairs&action=DetailView&record={{ repair.id }}">{{ repair.name }}</a>
+                </td>
+                {% if repair.description %}
+                    <td>{{ repair.description }}</td>
+                {% else %}
+                    <td></td>
+                {% endif %}
+                <td>{{ repair.comment }}</td>
+                <td>{{ repair.status }}</td>
+                <td>{{ repair.date|date:'Y-m-d' }}</td>
+                <td>{{ repair.user }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+{% if repairs_man_stat %}
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: [{% for stat in repairs_man_stat.all.all %}'{{ stat.0|date:'Y-m-d' }}', {% endfor %}],
+        datasets: [{
+            label: "Создано ремонтов",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in repairs_man_stat.all.all %} {{ stat.1 }}, {% endfor %}],
+            },
+            {
+            label: "Выполнено ремонтов",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in repairs_man_stat.all.done %} {{ stat.1 }}, {% endfor %}],
+            },
+            {% for man, stats in repairs_man_stat.items %}
+                {% if man != 'all' %}
+                    {
+                    label: "{{ man }}",
+                    backgroundColor: 'transparent',
+                    borderColor: getRandomColor(),
+                    data: [{% for stat in stats.done %} {{ stat.1 }}, {% endfor %}],
+                    },
+                {% endif %}
+            {% endfor %}
+        ],
+    },
+     // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+{% endif %}
+
+{% if repairs_cat_work_stat %}
+var ctx_cat_work_stat_period = document.getElementById("cat_work_stat_period");
+var cat_work_stat_period = new Chart(ctx_cat_work_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: [{% for stat in repairs_cat_work_stat.all.all %}'{{ stat.0|date:'Y-m-d' }}', {% endfor %}],
+        datasets: [{
+            label: "Создано ремонтов",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in repairs_cat_work_stat.all.all %} {{ stat.1 }}, {% endfor %}],
+            },
+            {
+            label: "Выполнено ремонтов",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in repairs_cat_work_stat.all.done %} {{ stat.1 }}, {% endfor %}],
+            },
+            {% for cat_work, stats in repairs_cat_work_stat.items %}
+                {% if cat_work != 'all' %}
+                    {
+                    label: "{{ cat_work }}",
+                    backgroundColor: 'transparent',
+                    borderColor: getRandomColor(),
+                    data: [{% for stat in stats.done %} {{ stat.1 }}, {% endfor %}],
+                    },
+                {% endif %}
+            {% endfor %}
+        ],
+    },
+     // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+{% endif %}
+
+</script>
+{% endblock js-block %}

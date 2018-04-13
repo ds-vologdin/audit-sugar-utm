@@ -1,0 +1,64 @@
+{% extends "audit/base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <ul class="nav nav-pills">
+            <li class="dropdown active"><a href="/audit/hwremove/{% now 'Y/m' %}/01/" data-toggle="dropdown" class="dropdown-toggle">
+                Выбрать месяц <b class="caret"></b></a>
+                <ul class="dropdown-menu">
+                    {% for month in months %}
+                        {% if month|date:'Y/m' in request.path %}
+                        <li class="active"><a href="/audit/hwremove/{{ month|date:'Y/m' }}/01/">{{ month|date:'Y - m' }}</a>
+                        {% else %}
+                        <li><a href="/audit/hwremove/{{ month|date:'Y/m' }}/01/">{{ month|date:'Y - m' }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </li>
+        </ul>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Снятие оборудования на {{ date_stat|date:'Y-m-d' }}</h1>
+        {% if hw_removes %}
+            <p>Всего оборудования на съём: {{ hw_removes|length }} шт.</p>
+            <p><a href="/audit/hwremove/{{ date_stat|date:'Y/m/d' }}/ods">Загрузить ods</a></p>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Логин</th>
+                        <th>Абонент</th>
+                        <th>Адрес</th>
+                        <th>Тариф</th>
+                        <th>Телефон</th>
+                        <th>Дата</th>
+                        <th>Оборудование</th>
+                    </tr>
+                </thead>
+                {% for hw in hw_removes|dictsort:"date" %}
+                    <tbody>
+                        <tr>
+                            <td>{{ hw.login}}</td>
+                            <td>{{ hw.name }}</td>
+                            <td>{{ hw.address }}</td>
+                            <td>{{ hw.tarif }}</td>
+                            <td>{{ hw.phone }}</td>
+                            <td>{{ hw.date|date:"Y-m-d" }}</td>
+                            <td>
+                                <ul>
+                                    {% for device in hw.devices %}
+                                        <li>{{ device.type }} ({{device.inventory}}) - {{ device.status }}: {{ device.name }} {{ device.desc }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No blocks are available.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}

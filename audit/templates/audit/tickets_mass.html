@@ -1,0 +1,63 @@
+{% extends "audit/base.html" %}
+
+{% block content %}
+<div class="col-xs-12">
+    <h1>Массовые тикеты за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+    {% if bugs %}
+        <!--<p><a href="{{ request.path }}csv/">Сгенерировать csv</a></p>-->
+        <p>Найдено {{ bugs|length }} массовых тикетов.</p>
+        <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">#</th>
+                    <th>Тикет</th>
+                    <th>Проведены работы</th>
+                    <th>Локализация</th>
+                    <th>Абоненты</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for bug in bugs %}
+                    <tr>
+                        <td class="text-center">
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }}</a>
+                        </td>
+                        <td>
+                            <p><b>Дата:</b> {{ bug.date|date:'Y-m-d' }}</p>
+                            <p><b>Статус: </b> {{ bug.status }}</p>
+                            {% if bug.address %}
+                            <p><b>Адрес:</b> {{ bug.address }}</p>
+                            {% endif %}
+                            <p><b>Сервис отсутствовал:</b> {{ bug.duration }} ч.</p>
+                            <p><b>Тема:</b> {{ bug.name }}</p>
+                            <p><b>Описание:</b></p>
+                            <p>{{ bug.description|linebreaks }}</p>
+                            {% if bug.reason_close %}
+                            <p><b>Причина закрытия:</b> {{ bug.reason_close }}</p>
+                            {% endif %}
+ 
+                        </td>
+                        <td>
+                            {% for perform in bug.perform %}
+                                <li>{{ perform }}</li>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for loc in bug.localisation %}
+                                <li>{{ loc }}</li>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for account in bug.accounts %}
+                                <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ account.id }}">{{ account.name }}</a></li>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+    {% else %}
+        <p>Данных нет</p>
+    {% endif %}
+</div>
+{% endblock content %}

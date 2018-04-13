@@ -1,0 +1,237 @@
+{% load staticfiles %}
+<head>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+
+<!-- Подключаем jQuery -->
+<script src="{% static 'jquery/jquery-3.3.1.js' %}"></script>
+<!-- Подключаем Bootstrap JS --> 
+<script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>-->
+
+{% block js-import %}
+<!-- Подключаем JS -->
+{% endblock js-import %}
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row page-header">
+        <ul class="nav nav-pills ">
+            {% if request.path == "/audit/" %}
+            <li class="active"><a href="/audit/">Главная</a></li>
+            {% else %}
+            <li><a href="/audit/">Главная</a></li>
+            {% endif %}
+            {% if "/audit/utmpays" in request.path  or "/audit/block/" in request.path or "/audit/hwremove/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="/audit/utmpays/last/" data-toggle="dropdown" class="dropdown-toggle">
+                    Платежи физ. лиц
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/utmpays/last/year/">Платежи физиков за последний год</a></li>
+                    <li><a href="/audit/utmpays/last/3years/">Платежи физиков за последние 3 года</a></li>
+                    <li><a href="/audit/utmpays/{% now 'Y' %}/">Платежи за текущий год</a></li>
+                    <li><a href="/audit/utmpays/{% now 'Y/m' %}/">Платежи за текущий месяц</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/block/{% now 'Y/m' %}/">Блокировки за текущий месяц</a></li>
+                    <li><a href="/audit/hwremove/{% now 'Y/m' %}/01/">Оборудование на снятие</a></li>
+                </ul>
+            </li>
+            {% if "/audit/tickets/" in request.path or "/audit/support/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="#" data-toggle="dropdown" class="dropdown-toggle">
+                    Тикеты 
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/tickets/last/month/">Статистика по тикетам</a></li>
+                    <li><a href="/audit/tickets/{% now 'Y/m' %}/">Статистика по тикетам за текущий месяц</a></li>
+                    <li><a href="/audit/tickets/{% now 'Y' %}/">Статистика по тикетам за текущий год</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/tickets/bad_fill/last/month/">Незаполненные тикеты</a></li>
+                    <li><a href="/audit/tickets/bad_fill/{% now 'Y/m' %}/">Незаполненные тикеты за текущий месяц</a></li>
+                    <li><a href="/audit/tickets/bad_fill/{% now 'Y' %}/">Незаполненные тикеты за текущий год</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/tickets/bad_fill_mass/last/week/">Некорретно оформленные массовые тикеты</a></li>
+                    <li><a href="/audit/tickets/mass/last/week/">Массовые тикеты</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/top_tickets/last/month/">ТОП тикетов</a></li>
+                    <li><a href="/audit/top_calls/last/month/">ТОП звонков в тех. поддержку</a></li>
+                    <li><a href="/audit/tickets/top_no_service/last/month/">ТОП абонентов с отсутствующим сервисом</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/support/last/month/">Статистика контакт центра (тех. поддержка)</a></li>
+                </ul>
+            </li>
+            {% if "/audit/repairs/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="#" data-toggle="dropdown" class="dropdown-toggle">
+                    Ремонты 
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/repairs/last/week/">Статистика по ремонтам за 7 дней</a></li>
+                    <li><a href="/audit/repairs/last/month/">Статистика по ремонтам за 30 дней</a></li>
+                    <li class="divider"></li>
+                    <li><a href="/audit/repairs/dublicate/last/week/">Статистика по повторным ремонтам за 7 дней</a></li>
+                    <li><a href="/audit/repairs/dublicate/last/month/">Статистика по повторным ремонтам за 30 дней</a></li>
+                </ul>
+            </li>
+            {% if "/audit/survey/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="#" data-toggle="dropdown" class="dropdown-toggle">
+                    Осмотры 
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/survey/last/week/">Статистика по осмотрам за 7 дней</a></li>
+                    <li><a href="/audit/survey/last/month/">Статистика по осмотрам за 30 дней</a></li>
+                </ul>
+            </li>
+            {% if "/audit/connections/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="#" data-toggle="dropdown" class="dropdown-toggle">
+                    План работ 
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/connections/last/week/">Статистика по работам в плане за 7 дней</a></li>
+                    <li><a href="/audit/connections/last/month/">Статистика по работам в плане за 30 дней</a></li>
+                </ul>
+            </li>
+            {% if "/audit/acc_question/" in request.path %}
+            <li class="dropdown active">
+            {% else %}
+            <li class="dropdown">
+            {% endif %}
+                <a href="#" data-toggle="dropdown" class="dropdown-toggle">
+                    Работа с клиентом 
+                    <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="/audit/acc_question/last/week/">Статистика по проведённым опросам за 7 дней</a></li>
+                    <li><a href="/audit/acc_question/last/month/">Статистика по проведённым опросам за 30 дней</a></li>
+                </ul>
+            </li>
+            <li class="dropdown pull-right">
+                <a href="/audit/logout">Выход ({{ user }})</a>
+            </li>
+        </ul>
+    </div>
+    {% if messages %}
+    <div class="row">
+        <ul class="messages">
+        {% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+                {{ message }}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% if menu_url %}
+    <div class="row">
+        <div class="col-xs-12">
+            <ul class="nav nav-pills">
+                {% if "/last/week/" in request.path%}
+                    <li class="active"><a href="{{ menu_url }}last/week/">За 7 дней</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/week/">За 7 дней</a></li>
+                {% endif %}
+                {% if "/last/month/" in request.path %}
+                    <li class="active"><a href="{{ menu_url }}last/month/">За 30 дней</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/month/">За 30 дней</a></li>
+                {% endif %}
+                {% if "/last/quarter/" in request.path %}
+                    <li class="active"><a href="{{ menu_url }}last/quarter/">За 90 дней</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/quarter/">За 90 дней</a></li>
+                {% endif %}
+                {% if "/last/year/" in request.path %}
+                    <li class="active"><a href="{{ menu_url }}last/year/">За год</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/year/">За год</a></li>
+                {% endif %}
+                {% if "/last/2years/" in request.path %}
+                    <li class="active"><a href="{{ menu_url }}last/2years/">За 2 года</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/2years/">За 2 года</a></li>
+                {% endif %}
+                {% if "/last/3years/" in request.path %}
+                    <li class="active"><a href="{{ menu_url }}last/3years/">За 3 года</a></li>
+                {% else %}
+                    <li><a href="{{ menu_url }}last/3years/">За 3 года</a></li>
+                {% endif %}
+
+                {% if months|length > 0 %}
+                    {% if type == 'month' %}
+                    <li class="dropdown active"><a href="{{ menu_url }}{% now 'Y/m' %}/" data-toggle="dropdown" class="dropdown-toggle">
+                    {% else %}
+                    <li class="dropdown"><a href="{{ menu_url }}{% now 'Y/m' %}/" data-toggle="dropdown" class="dropdown-toggle">
+                    {% endif %}
+                        Выбрать месяц <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            {% for month in months %}
+                                {% if month|date:'Y/m' in request.path %}
+                                <li class="active"><a href="{{ menu_url }}{{ month|date:'Y/m' }}/">{{ month|date:'Y - m' }}</a>
+                                {% else %}
+                                <li><a href="{{ menu_url }}{{ month|date:'Y/m' }}/">{{ month|date:'Y - m' }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endif %}
+
+                {% if years|length > 0 %}
+                    {% if type == 'year' %}
+                    <li class="dropdown active"><a href="{{ menu_url }}{% now 'Y' %}/" data-toggle="dropdown" class="dropdown-toggle">
+                    {% else %}
+                    <li class="dropdown"><a href="{{ menu_url }}{% now 'Y' %}/" data-toggle="dropdown" class="dropdown-toggle">
+                    {% endif %}
+                        Выбрать год <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            {% for year in years %}
+                                {% if year|date:'Y' in request.path and type == 'year' %}
+                                <li class="active"><a href="{{ menu_url }}{{ year|date:'Y' }}/">{{ year|date:'Y' }}</a>
+                                {% else %}
+                                <li><a href="{{ menu_url }}{{ year|date:'Y' }}/">{{ year|date:'Y' }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    {% block content %}
+    <!-- Контент -->
+    <div class="row">
+        <b>
+            <p>Ты властелин своей судьбы - да будет так!</p>
+            <p>Только предупреди об этом инсульт и рак...</p>
+        </b>
+    </div>
+    {% endblock content %}
+</div>
+</body>
+{% block js-block %}
+<!--JS для прорисовки графика -->
+{% endblock js-block %}

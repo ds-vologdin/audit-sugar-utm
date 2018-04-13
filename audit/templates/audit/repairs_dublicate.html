@@ -1,0 +1,80 @@
+{% extends "audit/base.html" %}
+
+{% block content %}
+<h1>Отчёт по повторным ремонтам за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+<p><a href="{{request.path}}ods/">Сохранить ods</p>
+{% if repairs %}
+    <table class="table table-hover">
+        <thead>
+        <tr>
+            <th class="text-center">Название</th>
+            <th class="text-center">Описание</th>
+            <th class="text-center">Комментарии</th>
+            <th class="text-center">Статус</th>
+            <th class="text-center">Дата</th>
+            <th class="text-center">Исполнитель</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for repair in repairs%}
+            <tr>
+                <td colspan="3"><b><a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ repair.new.account_id }}">{{ repair.new.account }} - {{ repair.new.address }}</a></b></td>
+                <td colspan="3">
+                    <div class="tickets">
+                        {% if repair.bugs|length > 3 %}
+                            <a name="all-{{ forloop.counter0 }}"></a>
+                            <a href='#all-{{ forloop.counter0 }}' class = "extremum-click">Показать все {{ repair.bugs|length }} тикетов</a>
+                        {% endif %}
+                            {% for bug in repair.bugs|slice:":3" %}
+                                <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} - {{ bug.date|date:'Y-m-d' }}</a></li>
+                            {% endfor %}
+                        {% if repair.bugs|length > 3 %}
+                            <div class="extremum-slide" style="display: none;">
+                                {% for bug in repair.bugs|slice:"3:" %}
+                                    <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} - {{ bug.date|date:'Y-m-d' }}</a></li>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="http://crm.kgts.su/sugarcrm/index.php?module=rep_Repairs&action=DetailView&record={{ repair.new.id }}">{{ repair.new.name }}</a>
+                </td>
+                <td>{{ repair.new.description }}</td>
+                <td>{{ repair.new.comment }}</td>
+                <td>{{ repair.new.status }}</td>
+                <td>{{ repair.new.date|date:'Y-m-d' }}</td>
+                <td>{{ repair.new.user }}</td>
+            </tr>
+            {% for repair_old in repair.old%}
+                <tr class='warning'>
+                    <td>
+                        <a href="http://crm.kgts.su/sugarcrm/index.php?module=rep_Repairs&action=DetailView&record={{ repair_old.id }}">{{ repair_old.name }}</a>
+                    </td>
+                    <td>{{ repair_old.description }} ({{ repair_old.address }})</td>
+                    <td>{{ repair_old.comment }}</td>
+                    <td>{{ repair_old.status }}</td>
+                    <td>{{ repair_old.date|date:'Y-m-d' }}</td>
+                    <td>{{ repair_old.user }}</td>
+                </tr>
+            {% endfor %}
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <h2>Повторных ремонтов не найдено</h2>
+{% endif %}
+
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+// Скрыть/открыть удалённые работы
+$(".extremum-click").click(function () {
+      $(this).siblings(".extremum-slide").slideToggle("slow");
+    });
+</script>
+{% endblock js-block %}

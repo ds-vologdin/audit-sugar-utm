@@ -1,0 +1,272 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Работы в плане</h1>
+        <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+        <p>Найдено {{ connections|length }} работ в плане.</p>
+        <p><a href="#del">Удалено работ: {{ connections_del|length }}</a></p>
+        {% if connections %}
+            <div class="row">
+                <canvas id="stat_period" width="400" height="100"></canvas>
+            </div>
+            <div class="row">
+                <canvas id="stat_manager_period" width="400" height="100"></canvas>
+            </div>
+            {% if statistics %}
+                <div class="row">
+                    <div class="col-xs-6">
+                        <h2 class="text-center">Распределение работ по типам</h2>
+                        <canvas id="stat_type_pie" width="100" height="100"></canvas>
+                    </div>
+                    <div class="col-xs-6">
+                        <h2 class="text-center">Распределение работ по менеджерам</h2>
+                        <canvas id="stat_manager_pie" width="100" height="100"></canvas>
+                    </div>
+                </div>
+            {% endif %}
+            <div>
+                <p><a name="nodel"></a></p> 
+                <h3>Работы в плане</h3>
+                <a href='#nodel' class = "extremum-click">Открыть/скрыть информацию</a> <!-- Всё происходит при нажатии на ссылку -->
+                <div class="row extremum-slide" style="display: none;">
+                    <table class="table table-hover" >
+                        <thead>
+                        <tr>
+                            <th class="text-center">Дата</th>
+                            <th>Работа</th>
+                            <th>Создана</th>
+                            <th>Тип</th>
+                            <th>Статус</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for con in connections %}
+                            {% if con.radio == 1 %}
+                            <tr class="warning">
+                            {% else %}
+                            <tr>
+                            {% endif %}
+                                <td class="text-center">{{ con.date|date:'Y-m-d' }}</td>
+                                <td>
+                                    <p><b><a href="http://crm.kgts.su/sugarcrm/index.php?module=con_p_connections_plan&action=DetailView&record={{ con.id }}">{{ con.address }}</a></b></p>
+                                    <p>{{ con.name }}</p>
+                                    <p>{{ con.desc }}</p>
+                                    {% if con.radio %}
+                                        <p>Уровень сигнала: {{ con.level_signal }}</p>
+                                        <p>Канальные скорости: {{ con.channel_speed }}</p>
+                                    {% endif %}
+                                    {% if con.comment_mount %}
+                                        <p><b>Коментарий к монтажу:</b></p>
+                                        {{ con.comment_mount|linebreaks }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <p>{{ con.create_by }}</p>
+                                    <p>{{ con.date_entered|date:'Y-m-d' }}</p>
+                                </td>
+                                <td>{{ con.type }}</td>
+                                <td>{{ con.status }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% else %}
+            <b>Работ не найдено</b>
+        {% endif %}
+        {% if connections_del %}
+            <div>
+                <p><a name="del"></a></p> 
+                <h3>Удалённые работы</h3>
+                <a href='#del' class = "extremum-click">Открыть/скрыть информацию</a> <!-- Всё происходит при нажатии на ссылку -->
+                <div class="row extremum-slide" style="display: none;">
+                    <table class="table table-hover" >
+                        <thead>
+                        <tr>
+                            <th class="text-center">Дата</th>
+                            <th>Работа</th>
+                            <th>Создана</th>
+                            <th>Тип</th>
+                            <th>Статус</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for con in connections_del %}
+                            <tr>
+                                <td class="text-center">{{ con.date|date:'Y-m-d' }}</td>
+                                <td>
+                                    <p><b>{{ con.address }}</b></p>
+                                    <p>{{ con.name }}</p>
+                                    <p>{{ con.desc }}</p>
+                                    <p>UPDATE con_p_connections_plan SET deleted=0 WHERE id='{{ con.id }}';</p>
+                                </td>
+                                <td>
+                                    <p>{{ con.create_by }}</p>
+                                    <p>{{ con.date_entered|date:'Y-m-d' }}</p>
+                                </td>
+                                <td>{{ con.type }}</td>
+                                <td>{{ con.status }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+function concatColor(color, count) {
+    var colors = []
+    for (var i = 0; i < count; i++) {
+        colors[i] = color
+    }
+    return colors
+}
+
+var color_perf = [{% for stat in statistics_period %} 'blue', {% endfor %}];
+var lables_data = [{% for stat in statistics_period %} '{{ stat.date|date:'Y-m-d' }}', {% endfor %}];
+var color = ['red', 'green', 'orange', 'orangered', 'indigo', 'limegreen',
+'turquoise', 'blueviolet', 'aquamarine', 'tomato', 'gold', 'khaki',
+'orchid', 'darkmagenta', 'royalblue', 'teal', 'midnightblue'];
+// График для статистики проведённых работ в процентах
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'bar',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Работ в плане",
+            //backgroundColor: 'transparent',
+            //borderColor: 'blue',
+            data: [{% for stat in statistics_period %} {{ stat.count }}, {% endfor %}],
+            backgroundColor: concatColor('blue', {{ statistics_period|length }}),
+            },
+            {% for stats in statistics_type_period %}
+            {
+            label: "{{ stats.type }}",
+            //backgroundColor: 'transparent',
+            //borderColor: color[{{ forloop.counter0 }}],
+            data: [{% for stat in stats.stat %} {{ stat.count }}, {% endfor %}],
+            backgroundColor: concatColor(color[{{ forloop.counter0 }}], {{ stats.stat|length }}),
+            },
+            {% endfor %}
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+var color_man = [{% for stats in statistics_manager_period %}getRandomColor(),{% endfor %}]
+
+var ctx_stat_manager_period = document.getElementById("stat_manager_period");
+var stat_manager_period = new Chart(ctx_stat_manager_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {% for stats in statistics_manager_period %}
+            {
+            label: "{{ stats.man }}",
+            backgroundColor: 'transparent',
+            borderColor: color_man[{{ forloop.counter0 }}],
+            data: [{% for stat in stats.stat %} {{ stat.count }}, {% endfor %}],
+            },
+            {% endfor %}
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+var lables_type = [{% for stat in statistics.type %} '{{ stat.type }}', {% endfor %}]
+
+var ctx_stat_type_pie = document.getElementById("stat_type_pie");
+var stat_type_pie = new Chart(ctx_stat_type_pie, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: lables_type,
+        datasets: [{
+            data: [{% for stat in statistics.type %} {{ stat.count }}, {% endfor %}],
+            backgroundColor: color,
+            },
+        ],
+    },
+});
+
+var ctx_stat_manager_pie = document.getElementById("stat_manager_pie");
+var stat_manager_pie = new Chart(ctx_stat_manager_pie, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        //labels: lables_manager,
+        labels: [{% for stats in statistics_manager_period %}"{{ stats.man }}",{% endfor %}],
+        datasets: [{
+            data: [{% for stats in statistics_manager_period %}{{ stats.count }},{% endfor %}],
+            backgroundColor: color_man,
+            },
+        ],
+    },
+});
+
+// Скрыть/открыть удалённые работы
+$(".extremum-click").click(function () {
+      $(this).siblings(".extremum-slide").slideToggle("slow");
+    });
+
+</script>
+{% endblock js-block %}

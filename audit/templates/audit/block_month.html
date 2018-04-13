@@ -1,0 +1,57 @@
+{% extends "audit/base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <ul class="nav nav-pills">
+        <li class="dropdown active"><a href="/audit/block/{% now 'Y/m' %}/" data-toggle="dropdown" class="dropdown-toggle">
+            Выбрать месяц <b class="caret"></b></a>
+            <ul class="dropdown-menu">
+                {% for month in months %}
+                    {% if month|date:'Y/m' in request.path %}
+                    <li class="active"><a href="/audit/block/{{ month|date:'Y/m' }}/">{{ month|date:'Y - m' }}</a>
+                    {% else %}
+                    <li><a href="/audit/block/{{ month|date:'Y/m' }}/">{{ month|date:'Y - m' }}</a>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </li>
+    </ul>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Блокировка за {{ date_begin|date:'Y-m' }}</h1>
+        {% if blocks %}
+            <p>Всего заблокировано {{ blocks|length }} абонентов</p>
+            <p><a href="/audit/block/{{ date_begin|date:'Y/m' }}/ods">Загрузить ods</a></p>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Логин</th>
+                        <th>Абонент</th>
+                        <th>Адрес</th>
+                        <th>Тариф</th>
+                        <th>Телефон</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                {% for block in blocks|dictsort:"date" %}
+                    <tbody>
+                        <tr>
+                            <td>{{ block.login}}</td>
+                            <td>{{ block.user }}</td>
+                            <td>{{ block.address }}</td>
+                            <td>{{ block.tarif }}</td>
+                            <td>{{ block.phone }}</td>
+                            <td>{{ block.date|date:"Y-m-d" }}</td>
+                        </tr>
+                    </tbody>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No blocks are available.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock content %}

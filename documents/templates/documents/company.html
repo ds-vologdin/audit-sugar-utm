@@ -1,0 +1,48 @@
+{% load staticfiles %}
+<meta name="robots" content="noindex, nofollow">
+<!--<link rel="stylesheet" type="text/css" href="{% static 'documents/style.css' %}" />-->
+<link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+<title>Разрешительные документы</title>
+
+<div class="container-fluid">
+    <div class="row page-header">
+        <div class='col-xs-10'>
+            <h1>Разрешительные документы</h1>
+        </div>
+        <div class='col-xs-2'>
+            <br>
+            <br>
+            <a href="/utmpays/logout">Выход ({{ user }})</a>
+        </div>
+    </div>
+
+    {% if companys %}
+    <div class="row">
+        <div class="col-xs-3">
+            <li><a href="/documents/">Документы</a>
+            <li><a href="/documents/company/">Организации</a>
+            <li><a href="/documents/type_doc/">Типы документов</a>
+        </div>
+        <div class="col-xs-9">
+            <table class="table" >
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                    </tr>
+                </thead>
+                {% for company in companys %}
+                <tbody>
+                    <tr>
+                        <td>{{ company.name }}</td>
+                        <td>{{ company.description }}</td>
+                    </tr>
+                </tbody>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    {% else %}
+        <p>No blocks are available.</p>
+    {% endif %}
+</div>

@@ -1,0 +1,226 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        {% if tickets %}
+            <h1>Статистика по тикетам за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+            <h2>Открытые тикеты</h2>
+            <p><a href="{{ request.path }}csv/">Сгенерировать csv</a></p>
+            <div class="row">
+                <canvas id="tickets_chart" width="400" height="200"></canvas>
+            </div>
+        {% else %}
+            <h1>Статистика по тикетам за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+            <p>Данных нет</p>
+        {% endif %}
+        {% if tickets_stat%}
+        <div class="row">
+            <h2>Статистика по типам тикетов</h2>
+            <b>
+                <p>Всего создано тикетов: {{ tickets_stat.all }}</p>
+                <p>Тикетов с незаданной локализацией: {{ tickets_stat.no_loc }}</p>
+                <p>Тикетов с незаданными типами работ: {{ tickets_stat.no_perf }}</p>
+            </b>
+        </div>
+        <div class="row">
+            <div class="col-xs-6">
+                <h3 class="text-center">Статистика по типу локализации</h3>
+                <canvas id="tickets_loc" width="100" height="100"></canvas>
+            </div>
+            <div class="col-xs-6">
+                <h3 class="text-center">Статистика по типу локализации (в процентном отношении)</h3>
+                <canvas id="tickets_loc_pr" width="100" height="100"></canvas>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-6">
+                <h3 class="text-center">Статистика по типу проводимых работ</h3>
+                <canvas id="tickets_perf" width="100" height="100"></canvas>
+            </div>
+            <div class="col-xs-6">
+                <h3 class="text-center">Статистика по типу проводимых работ (в процентном отношении к общему количеству тикетов)</h3>
+                <canvas id="tickets_perf_pr" width="100" height="100"></canvas>
+            </div>
+        </div>
+        {% else %}
+        <p>Статистики по типам тикетов нет.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+{% block js-block %}
+
+<!--JS для прорисовки графика -->
+<script>
+
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+// для генерации графика открытых тикетов
+var ctx_tickets = document.getElementById("tickets_chart");
+var tickets_chart = new Chart(ctx_tickets, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: [
+        {% for ticket in tickets %}
+            '{{ ticket.date|date:"Y-m-d" }}',
+        {% endfor %}
+        ],
+        datasets: [{
+            label: "Открытых тикетов",
+            borderColor: 'blue',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_open }}, {% endfor %}],
+            },
+            {
+            label: "ТП",
+            borderColor: 'red',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_tp }}, {% endfor %}],
+            },
+            {
+            label: "Создано",
+            borderColor: 'green',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_create }}, {% endfor %}],
+            },
+            {
+            label: "РС",
+            borderColor: 'SlateBlue',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_rs }}, {% endfor %}],
+            },
+            {
+            label: "Телефония",
+            borderColor: 'Orange',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_tf }}, {% endfor %}],
+            },
+            {
+            label: "ПД",
+            borderColor: 'Purple',
+            backgroundColor: 'transparent',
+            lineTension: 0.2,
+            borderWidth: 2,
+            pointRadius: 1,
+            data: [{% for ticket in tickets %} {{ ticket.count_pd }}, {% endfor %}],
+            },
+        ]
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+var color_loc = [{% for ticket in tickets_stat.ticket_local_stat%} getRandomColor(), {% endfor %} getRandomColor()];
+var labels_ticket_local_stat = [{% for ticket in tickets_stat.ticket_local_stat%} '{{ ticket.0 }}', {% endfor %}]
+// График для статистики локализации тикетов
+var ctx_tickets_loc = document.getElementById("tickets_loc");
+var tickets_loc = new Chart(ctx_tickets_loc, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: labels_ticket_local_stat,
+        datasets: [{
+            data: [{% for ticket in tickets_stat.ticket_local_stat%} {{ ticket.1 }}, {% endfor %} {{ tickets_stat.no_loc }}],
+            backgroundColor: color_loc
+            },],
+    },
+});
+
+// График для статистики локализации тикетов в процентах
+var ctx_tickets_loc_pr = document.getElementById("tickets_loc_pr");
+var tickets_loc = new Chart(ctx_tickets_loc_pr, {
+// The type of chart we want to create
+    type: 'polarArea',
+    // The data for our dataset
+    data: {
+        labels: [
+        {% for ticket in tickets_stat.ticket_local_stat%}
+            '{{ ticket.0 }}',
+        {% endfor %}
+        'Тикеты с незаданной локализацией'
+        ],
+        datasets: [{
+            data: [{% for ticket in tickets_stat.ticket_local_stat%} Math.round(parseFloat({{ ticket.1 }}*100/{{ tickets_stat.all }}) * 100) / 100, {% endfor %} {{ tickets_stat.no_loc }}*100/{{ tickets_stat.all }}],
+            backgroundColor: color_loc
+            },],
+    },
+});
+
+var color_perf = [{% for ticket in tickets_stat.ticket_perf_stat%} getRandomColor(), {% endfor %}];
+var labels_ticket_perf_stat = [{% for ticket in tickets_stat.ticket_perf_stat%} '{{ ticket.0 }}', {% endfor %}];
+
+// График для статистики проведённых работ
+var ctx_tickets_perf = document.getElementById("tickets_perf");
+var tickets_perf = new Chart(ctx_tickets_perf, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: labels_ticket_perf_stat,
+        datasets: [{
+            data: [{% for ticket in tickets_stat.ticket_perf_stat %} {{ ticket.1 }}, {% endfor %}],
+            backgroundColor: color_perf
+            },],
+    },
+});
+// График для статистики проведённых работ в процентах
+var ctx_tickets_perf_pr = document.getElementById("tickets_perf_pr");
+var tickets_perf_pr = new Chart(ctx_tickets_perf_pr, {
+// The type of chart we want to create
+    type: 'polarArea',
+    // The data for our dataset
+    data: {
+        labels: labels_ticket_perf_stat,
+        datasets: [{
+            data: [{% for ticket in tickets_stat.ticket_perf_stat %} Math.round(parseFloat({{ ticket.1 }}*100/{{ tickets_stat.all }}) * 100) / 100, {% endfor %}],
+            backgroundColor: color_perf
+            },],
+    },
+});
+</script>
+{% endblock js-block %}

@@ -1,0 +1,65 @@
+{% extends "audit/base.html" %}
+
+{% block content %}
+<h1>Топ звонков в техническую поддержку за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
+{% if calls %}
+    <table class="table table-hover" >
+        <thead>
+        <tr>
+            <th>Номер телефона</th>
+            <th>Абонент</th>
+            <th class="text-center">Количество звонков</th>
+            <th class="text-center">Тикеты за отчётный период</th>
+            <th class="text-center">Тикеты старые</th>
+        </tr>
+        </thead>
+    {% for call in calls%}
+        <tr>
+            <td>{{ call.number }}</td>
+            {% if call.account %}
+                <td><b><a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ call.account_id }}">{{ call.account }}</a></b></td>
+            {% else %}
+                <td></td>
+            {% endif %}
+            <td class="text-center">{{ call.count_calls }}</td>
+            <td class="text-center">
+                <ul>
+                    {% for bug in call.bugs %}
+                            <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} {{bug.date|date:'Y-m-d'}}</a></li>
+                    {% endfor %}
+                </ul>
+            </td>
+            <td class="text-center">
+                <ul>
+                    {% if call.bugs_old|length > 3 %}
+                        <a name="all-{{ forloop.counter0 }}"></a>
+                        <a href='#all-{{ forloop.counter0 }}' class = "extremum-click">Показать все  тикеты ({{ call.bugs_old|length }})</a>
+                    {% endif %}
+                    {% for bug in call.bugs_old|slice:":3" %}
+                            <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} {{bug.date|date:'Y-m-d'}}</a></li>
+                    {% endfor %}
+                    {% if call.bugs_old|length > 3 %}
+                        <div class="extremum-slide" style="display: none;">
+                            {% for bug in call.bugs_old|slice:"3:" %}
+                                <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} {{ bug.date|date:'Y-m-d' }}</a></li>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </ul>
+            </td>
+        </tr>
+    {% endfor %}
+{% else %}
+    <h2>Данных нет...</h2>
+{% endif %}
+
+{% endblock content %}
+
+{% block js-block %}
+<script>
+// Скрыть/открыть удалённые работы
+$(".extremum-click").click(function () {
+      $(this).siblings(".extremum-slide").slideToggle("slow");
+    });
+</script>
+{% endblock js-block %}

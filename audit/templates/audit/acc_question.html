@@ -1,0 +1,147 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Опросы клиентов</h1>
+        <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+        {% if questions_period %}
+            <h3>Статистика проведения опросов</h3>
+            <p>Всего проведено опросов: {{ questions_length }}</p>
+            <div class="row">
+                <canvas id="stat_period" width="400" height="100"></canvas>
+            </div>
+        {% endif %}
+        <div>
+            <h3>Не довольны сервисом ({{ questions|length }})</h3>
+            <table class="table table-hover" >
+                <thead>
+                    <tr>
+                        <th>Дата опроса</th>
+                        <th>Контрагент</th>
+                        <th>Качество клиента</th>
+                        <th>Звонят в ТП</th>
+                        <th>Оценка ТП</th>
+                        <th>Описание</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in questions %}
+                    <tr>
+                        <td>
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=qu_question&action=DetailView&record={{ question.id }}">{{ question.date|date:'Y-m-d' }}</a>
+                        <td>
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ question.account_id }}">{{ question.account }} - {{ question.address }}</a>
+                            <p>Тикеты ({{ question.bugs|length }}):</p>
+                            {% for bug in question.bugs %}
+                                <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }}</a>
+                            {% endfor %}
+                        </td>
+                        </td>
+                        <td>{{ question.quality_client }}</td>
+                        <td>{{ question.support_calls }}</td>
+                        <td>{{ question.support }}</td>
+                        <td>
+                            <p>{{ question.name }}</p>
+                            <p>Тип опроса: {{ question.type }}</p>
+                            {% if not question.install == '-' %}
+                                <p>Оценка монтажа: {{ question.install }}</p>
+                            {% endif %}
+                            {% if not question.sell == '-' %}
+                                <p>Оценка менеджера по продажам: {{ question.sell }}</p>
+                            {% endif %}
+                            {% if not question.service_problem == '-' %}
+                                <p>Жалоба: {{ question.service_problem }}</p>
+                            {% endif %}
+                            {% if question.description %}
+                                <p>Описание: {{ question.description|linebreaks }}</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="row">
+    {% if not_recalls %}
+        <h2>Пропущенные вызовы</h2>
+        <p>Всего пропущено вызовов: {{ not_recalls|length }}</p>
+        {% if not_recalls|length < 50 %}
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Номер телефона</th>
+                        <th>Количество попыток перезвонить</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for not_recall in not_recalls %}
+                        <tr>
+                            <td>{{ not_recall.date|date:'Y-m-d h:i:s' }}</td>
+                            <td>{{ not_recall.callid }}</td>
+                            <td>{{ not_recall.retry }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+
+var lables_data = [{% for stat in questions_period %} '{{ stat.date|date:'Y-m-d' }}', {% endfor %}];
+
+// График статистики обработки входящих звонков
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Проведено опросов",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in questions_period %} {{ stat.count }}, {% endfor %}],
+            },
+            {
+            label: "Недовлетворены сервисом",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in bad_questions_period %} {{ stat.count }}, {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+</script>
+{% endblock js-block %}

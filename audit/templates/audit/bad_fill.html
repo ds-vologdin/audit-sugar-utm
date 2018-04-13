@@ -1,0 +1,55 @@
+{% extends "audit/base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Некорретно оформленные тикеты</h1>
+        {% if tickets %}
+            <p>Найдено {{ tickets|length }} некорретно оформленных тикетов.</p>
+            <p><a href="{{ request.path }}csv/">Сгенерировать csv</a></p>
+            <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+            <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">#</th>
+                    <th class="text-center">Дата создания</th>
+                    <th class="text-center">Дата закрытия</th>
+                    <th class="text-center">Группа</th>
+                    <th class="text-center">Статус</th>
+                    <th class="text-center">Локализация</th>
+                    <th class="text-center">Выполненные работы</th>
+                    <th class="text-center">Сервис отсутствовал</th>
+                </tr>
+                </thead>
+                <tbody class="text-center">
+                {% for ticket in tickets %}
+                    <tr>
+                        <td>
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ ticket.id }}">{{ ticket.number }} {{ticket.date}}</a>
+                        </td>
+                        <td>{{ ticket.date_entered|date:'Y-m-d' }}</td>
+                        <td>{{ ticket.date_close|date:'Y-m-d' }}</td>
+                        <td>{{ ticket.group }}</td>
+                        <td>{{ ticket.status }}</td>
+                        <td>
+                            {% for loc in ticket.loc%}
+                                <p>{{ loc }}</p>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for perform in ticket.perform%}
+                                <li>{{ perform }}</li>
+                            {% endfor %}
+                        </td>
+                        <td>{{ ticket.dur }}</td>
+                        
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Некорретно оформленные тикеты не найдены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}

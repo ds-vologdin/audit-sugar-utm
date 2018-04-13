@@ -1,0 +1,54 @@
+{% load staticfiles %}
+<meta name="robots" content="noindex, nofollow">
+<!--<link rel="stylesheet" type="text/css" href="{% static 'documents/style.css' %}" />-->
+<link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+<title>Разрешительные документы</title>
+
+<div class="container-fluid">
+
+    <div class="row page-header">
+        <div class='col-xs-10'>
+            <h1>Разрешительные документы</h1>
+        </div>
+        <div class='col-xs-2'>
+            <br>
+            <br>
+            <a href="/utmpays/logout">Выход ({{ user }})</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-3">
+            <li><a href="/documents/{{ document.id }}/edit/">Редактировать документ</a>
+            <li><a href="/documents/">Документы</a>
+            <li><a href="/documents/company/">Организации</a>
+            <li><a href="/documents/type_doc/">Типы документов</a>
+        </div>
+        <div class="col-xs-9">
+            {% if document %}
+                <p><a href="/documents/{{ document.id }}/download/">{{ document }}</a></p>
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <td>Описание</td><td>{{ document.description }}</td>
+                        </tr>
+                        <tr>
+                            <td>Тип докумета</td><td>{{ document.type_doc }}</td>
+                        </tr>
+                        <tr>
+                            <td>Дата начала действия</td><td>{{ document.begin_date|date:"Y-m-d" }}</td>
+                        </tr>
+                        <tr>
+                            <td>Дата окончания действия</td><td>{{ document.end_date|date:"Y-m-d" }}<br>Осталось {{ document.days_left }} дней</td>
+                        </tr>
+                        <tr>
+                            <td>Организация</td><td>{{ document.company }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No blocks are available.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

@@ -1,0 +1,127 @@
+{% extends "audit/base.html" %}
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        {% if pays_stat %}
+            <h1>Платежи за {{ date_begin|date:'Y-m' }}</h1>
+            <canvas id="myChart" width="400" height="150"></canvas>
+            <h2>Платежи нарастающим итогом</h2>
+            <canvas id="progres_total" width="400" height="150"></canvas>
+            <table class="table table-hover" >
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Сумма</th>
+                        <th>Количество</th>
+                        <th>ARPU</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pay in pays_stat %}
+                    <tr>
+                        <td>{{ pay.date|date:"Y-m-d" }}</td>
+                        <td>{{ pay.summ|floatformat:2 }}</td>
+                        <td>{{ pay.count }}</td>
+                        <td>{{ pay.avg|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><b>Итого</b></td>
+                        <td><b>{{ pays_stat_summary.summ|floatformat:2 }}</b></td>
+                        <td><b>{{ pays_stat_summary.count }}</b></td>
+                        <td><b>{{ pays_stat_summary.avg|floatformat:2 }}</b></td>
+                    </tr>
+                </tbody>
+            </table>
+        {% else %}
+            <p>No pays are available.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+{% block js-block %}
+<!--JS для прорисовки графика -->
+<script>
+
+    function progressive_total(arr) {
+        var total = 0;
+        var progres_total = [];
+        for (var i=0; i<arr.length; i++) {
+            total += arr[i];
+            progres_total[i] = Math.round(total * 100)/100;
+        }
+        return progres_total;
+    }
+
+    var summ_arr = [{%for pay in pays_stat %}{{pay.summ}},{% endfor %}];
+    var progres_total_summ = progressive_total(summ_arr);
+    var date_arr = [{%for pay in pays_stat %}'{{pay.date|date:"Y-m-d"}}',{% endfor %}];
+
+    var ctx = document.getElementById("myChart");
+    var myChart = new Chart(ctx, {
+    // The type of chart we want to create
+        type: 'line',
+        // The data for our dataset
+        data: {
+            labels: date_arr,
+            datasets: [{
+                label: "Платежи",
+                borderColor: 'blue',
+                backgroundColor: 'transparent',
+                lineTension: 0.2,
+                borderWidth: 5,
+                data: [{% for pay in pays_stat %} {{ pay.summ }}, {% endfor %}],
+            }]
+        },
+        // Configuration options go here
+        options: {
+            scales: {
+                yAxes: [{
+                    display: true,
+                    ticks: {
+                        suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                        // OR //
+                        beginAtZero: true   // minimum value will be 0.
+                    }
+                }]
+            }
+        }
+    });
+    var ctx_progres_total = document.getElementById("progres_total");
+    var progres_total_chart = new Chart(ctx_progres_total, {
+    // The type of chart we want to create
+        type: 'line',
+        // The data for our dataset
+        data: {
+            labels: date_arr,
+            datasets: [{
+                label: "Платежи",
+                borderColor: 'blue',
+                backgroundColor: 'transparent',
+                lineTension: 0.2,
+                borderWidth: 5,
+                data: progres_total_summ,
+            }]
+        },
+        // Configuration options go here
+        options: {
+            scales: {
+                yAxes: [{
+                    display: true,
+                    ticks: {
+                        suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    }
+                }]
+            }
+        }
+    });
+</script>
+{% endblock js-block %}

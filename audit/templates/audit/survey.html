@@ -1,0 +1,254 @@
+{% extends "audit/base.html" %}
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Осмотры</h1>
+        {% if surveys %}
+            <p>Найдено {{ surveys|length }} осмотра.</p>
+            <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+            {% if statistic_period|length > 0 %}
+            <div class="row">
+                <h2>Помесячная статистика созданных осмотров</h2>
+                <canvas id="stat_period" width="400" height="100"></canvas>
+            </div>
+            <div class="row">
+                <h2>Помесячная статистика созданных осмотров (по создателям)</h2>
+                <canvas id="stat_manager_period" width="400" height="100"></canvas>
+            </div>
+            {% endif %}
+            <div class="row">
+                <div class="col-xs-6">
+                    <h2 class="text-center">Создали заявки на осмотры</h2>
+                    <canvas id="stat_manager" width="100" height="100"></canvas>
+                </div>
+                <div class="col-xs-6">
+                    <h2 class="text-center">Статус заявок на осмотры</h2>
+                    <canvas id="stat_status" width="100" height="100"></canvas>
+                </div>
+            </div>
+            {% if surveys|length < 200 %}
+            <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">Дата</th>
+                    <th>Осмотр</th>
+                    <th>Статус</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% regroup surveys by manager as surveys_list %}
+                {% for survey_manager in surveys_list %}
+                    <tr><td colspan="4"><b>{{ survey_manager.grouper }}: {{survey_manager.list|length}}</b></td></tr>
+                    {% for survey in survey_manager.list %}
+                        {% if survey.status == 'В развитие сети' %}
+                        <tr class="info">
+                        {% elif survey.status == 'Заявка' %}
+                        <tr class="warning">
+                        {% elif not survey.status == 'Есть тех. возможность' %}
+                        <tr class="danger">
+                        {% else %}
+                        <tr>
+                        {% endif %}
+                            <td class="text-center">{{ survey.date_entered|date:'Y-m-d' }}</td>
+                            <td>
+                                <p><a href="http://crm.kgts.su/sugarcrm/index.php?module=ra_Survey&action=DetailView&record={{ survey.id }}">{{ survey.address }}</a></p>
+                                <p><b>Описание:</b> {{ survey.name }}</p>
+                                {% if survey.description %}
+                                    <p>{{ survey.description|linebreaks }}</p>
+                                {% endif %}
+                                {% if survey.resolution or survey.tu %}
+                                    <b>Резолюция:</b>
+                                    {% if survey.resolution %}
+                                        {{ survey.resolution }} <br>
+                                    {% endif %}
+                                    {% if survey.tu %}
+                                        {{ survey.tu }}
+                                    {% endif%}
+                                    </p>
+                                {% endif %}
+                                {% if survey.comment_rs %}
+                                    <p><b>Комментарий РС:</b> {{ survey.comment_rs }}</p>
+                                {% endif %}
+                                {% if survey.comment_ess %}
+                                    <p><b>Комментарий ЭСС:</b> {{ survey.comment_ess }}</p>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <li><b>Осмотр:</b> {{ survey.status }}</li>
+                                <li><b>РС:</b> {{ survey.status_rs }}</li>
+                                <li><b>ЭСС:</b> {{ survey.status_ess }}</li>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        {% else %}
+            <p>Осмотров не найдено</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+var color_manager = [{% for stat in statistics %} getRandomColor(), {% endfor %}];
+
+var ctx_stat_manager = document.getElementById("stat_manager");
+var stat_manager = new Chart(ctx_stat_manager, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: [{% for stat in statistics.keys %} {% if not stat == 'all' %} '{{ stat }}', {% endif %} {% endfor %}],
+        datasets: [{
+            label: "Заявки на осмотры",
+            data: [{% for stat in statistics.items %}{% if not stat.0 == 'all' %}{{ stat.1.count }},{% endif %}{% endfor %}],
+            backgroundColor: color_manager,
+            },
+        ],
+    },
+});
+
+var ctx_stat_status = document.getElementById("stat_status");
+var stat_status = new Chart(ctx_stat_status, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        //labels: status,
+        labels: [{% for stat in statistics.all.status.items %}'{{ stat.0 }}', {% endfor %}],
+        datasets: [{
+            label: "Заявки на осмотры",
+            data: [{% for stat in statistics.all.status.items %}{{ stat.1 }},{% endfor %}],
+            backgroundColor: ['#DC143C', '#90EE90', '#6495ED', '#483D8B'],
+            },
+        ],
+    },
+});
+{% if statistic_period|length > 0 %}
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: [{% for stat in statistic_period %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
+        datasets: [{
+            label: "Создано осмотров",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in statistic_period %} {{ stat.count }}, {% endfor %}],
+            },
+            {
+            label: "Есть тех. возможность",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in statistic_period %} {{ stat.status.accept }}, {% endfor %}],
+            },
+            {
+            label: "Нет тех. возможности",
+            backgroundColor: 'transparent',
+            borderColor: 'green',
+            data: [{% for stat in statistic_period %} {{ stat.status.deny }}, {% endfor %}],
+            },
+            {
+            label: "В развитие сети",
+            backgroundColor: 'transparent',
+            borderColor: 'SlateBlue',
+            data: [{% for stat in statistic_period %} {{ stat.status.build }}, {% endfor %}],
+            },
+            {
+            label: "Отказов РС",
+            backgroundColor: 'transparent',
+            borderColor: 'Orange',
+            data: [{% for stat in statistic_period %} {{ stat.status_rs.deny }}, {% endfor %}],
+            },
+            {
+            label: "Отложено РС",
+            backgroundColor: 'transparent',
+            borderColor: 'Brown',
+            data: [{% for stat in statistic_period %} {{ stat.status_rs.pending }}, {% endfor %}],
+            },
+            {
+            label: "Отказов ЭСС",
+            backgroundColor: 'transparent',
+            borderColor: 'GreenYellow',
+            data: [{% for stat in statistic_period %} {{ stat.status_ess.deny }}, {% endfor %}],
+            },
+            {
+            label: "Отложено ЭСС",
+            backgroundColor: 'transparent',
+            borderColor: 'Maroon',
+            data: [{% for stat in statistic_period %} {{ stat.status_ess.defer }}, {% endfor %}],
+            },
+        ],
+    },
+     // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+{% endif %}
+var ctx_stat_manager_period = document.getElementById("stat_manager_period");
+var stat_manager_period  = new Chart(ctx_stat_manager_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: [{% for stat in statistic_period %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
+        datasets: [
+        {% for stat in statistic_manager_period %}
+            {
+            label: "{{ stat.manager }}",
+            backgroundColor: 'transparent',
+            borderColor: getRandomColor(),
+            data: [{% for item in stat.count_period|dictsort:'date' %} {{ item.count }}, {% endfor %}],
+            },
+        {% endfor %}
+        ],
+    },
+     // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+</script>
+{% endblock js-block %}

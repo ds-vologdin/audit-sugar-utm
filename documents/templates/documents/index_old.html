@@ -1,0 +1,52 @@
+{% load staticfiles %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" type="text/css" href="{% static 'utmpays/style.css' %}" />
+<title>Разрешительные документы</title>
+
+<header>
+    <div class='container'>
+        <h1>Разрешительные документы</h1>
+        <nav>
+            <ul>
+                <li><a href="/documents/company/">Организации</a>
+                <li><a href="/documents/type_doc/">Типы документов</a>
+                <li><a href="/utmpays/logout">Выход ({{ user }})</a>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+{% if documents %}
+<div class="main">
+    <p>Всего активных документов: {{ documents|length }}</p>
+    <a href="/documents/add/">Добавить документ</a>
+    <table  align="center" >
+        <tr>
+            <th>Название</th>
+            <th>Тип документа</th>
+            <th>Дата начала действия</th>
+            <th>Дата окончания действия</th>
+            <th>Осталось</th>
+            <th>Организация</th>
+            <th>Оповещения</th>
+        </tr>
+        {% for doc in documents %}
+        <tr>
+            <td><li><a href="/documents/{{ doc.id }}/">{{ doc.name }}</a></li></td>
+            <td>{{ doc.type_doc }}</td>
+            <td>{{ doc.begin_date|date:"Y-m-d" }}</td>
+            <td>{{ doc.end_date|date:"Y-m-d" }}</td>
+            <td>{{ doc.days_left }} дней</td>
+            <td>{{ doc.company }}</td>
+            <td>
+                {% for notify in doc.notify.all %}
+                    <li><a href="/documents/notify/{{ notify.id }}/">{{ notify }} ({{ notify.user_contact.all|join:", " }})</a></li>
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% else %}
+    <p>No blocks are available.</p>
+{% endif %}

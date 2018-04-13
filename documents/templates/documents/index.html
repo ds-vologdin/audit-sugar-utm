@@ -1,0 +1,99 @@
+{% load staticfiles %}
+<meta name="robots" content="noindex, nofollow">
+<!--<link rel="stylesheet" type="text/css" href="{% static 'documents/style.css' %}" />-->
+<link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+<title>Разрешительные документы</title>
+
+<div class="container-fluid">
+    <div class="row page-header">
+        <div class='col-xs-10'>
+            <h1>Разрешительные документы</h1>
+        </div>
+        <div class='col-xs-2'>
+            <br>
+            <br>
+            <a href="/utmpays/logout">Выход ({{ user }})</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-3">
+            <li><a href="/documents/add/">Добавить документ</a>
+            <li><a href="/documents/all/">Все документы (в том числе и не активные)</a>
+            <li><a href="/documents/company/">Организации</a>
+            <li><a href="/documents/type_doc/">Типы документов</a>
+            <hr>
+            <form action="" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <p><input type="checkbox" name="actual"
+                        value="True" {{ actual }}>Только актуальные документы
+                <hr>
+                {% for company in companys %}
+                    <p><input type="checkbox" name="company"
+                        value="{{ company.id }}" {{company.checked}}>{{ company.name }}
+                {% endfor %}
+                <hr>
+                {% for type_doc in type_docs %}
+                    <p><input type="checkbox" name="type_doc"
+                        value="{{ type_doc.id }}" {{type_doc.checked}}>{{ type_doc.name }}
+                {% endfor %}
+                <p><input type="submit" value="Применить"></p>
+            </form>
+        </div>
+
+        <div class="col-xs-9">
+            <p>Всего активных документов: {{ documents|length }}</p>
+            {% if documents %}
+                <table class="table table-hover" >
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Тип документа</th>
+                            <th>Дата начала действия</th>
+                            <th>Дата окончания действия</th>
+                            <th>Осталось</th>
+                            <th>Организация</th>
+                            <th>Оповещения</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for doc in documents %}
+                        {% if not doc.active %}
+                            <tr class='info'>
+                        {% elif doc.days_left < 90 %}
+                            <tr class='danger'>
+                        {% elif doc.days_left < 180 %}
+                            <tr class='warning'>
+                        {% else %}
+                            <tr>
+                        {% endif %} 
+                                <td><a href="/documents/{{ doc.id }}/">{{ doc.name }}</a></td>
+                                <td>{{ doc.type_doc }}</td>
+                                <td>{{ doc.begin_date|date:"Y-m-d" }}</td>
+                                {%if doc.end_date %}
+                                    <td>{{ doc.end_date|date:"Y-m-d" }}</td>
+                                    <td>{{ doc.days_left }} дней</td>
+                                {% else %}
+                                    <td></td>
+                                    <td></td>
+                                {% endif %}
+
+                                <td>{{ doc.company }}</td>
+                                <td>
+                                    {% for notify in doc.notify.all %}
+                                        <a href="/documents/notify/{{ notify.id }}/">{{ notify }} ({{ notify.user_contact.all|join:", " }})</a>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Документов не найдено.</p>
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+

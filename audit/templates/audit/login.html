@@ -1,0 +1,24 @@
+{% load staticfiles %}
+<html>
+  <head>
+    <title>Авторизация</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+    <!-- Подключаем Bootstrap JS --> 
+    <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+  </head>
+  <body>
+      <div class="container-fluid">
+          <div class="row">
+              <div class="col-xs-12 text-center">
+                  <h1>Авторизация</h1>
+                  <form action="" method="post">
+                    {% csrf_token %}
+                    <!-- as_p для того, чтобы каждый элемент формы был с новой строки -->
+                    {{ form.as_p }}
+                    <button type="submit">Авторизоваться</button>
+                  </form>
+              </div>
+          </div>
+      </div>
+  </body>
+</html>

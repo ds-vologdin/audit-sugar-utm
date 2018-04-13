@@ -1,0 +1,57 @@
+{% extends "audit/base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Массовые тикеты</h1>
+        {% if tickets %}
+            <p>Найдено {{ tickets|length }} массовых тикета.</p>
+            <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+            <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">Тикет</th>
+                    <th class="text-center">Описание</th>
+                    <th class="text-center">Абоненты в описании тикета</th>
+                    <th class="text-center">Созданы связи</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for ticket in tickets %}
+                    <tr>
+                        <td class="text-center">
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ ticket.id }}">{{ ticket.number }}</a>
+                        </td>
+                        <td>{{ ticket.desc|linebreaks }}</td>
+                        <td>
+                            <ul>
+                            {% for account in ticket.accounts%}
+                                <li>
+                                    <a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ account.id }}">{{ account.name }}</a>
+                                    {% if account.link %}
+                                        (+)
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                            </ul>
+                        </td>
+                        <td>
+                            <ul>
+                            {% for account in ticket.links%}
+                                <li>
+                                    <a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ account.id }}">{{ account.name }}</a>
+                                </li>
+                            {% endfor %}
+                            </ul>
+                        </td>
+                        <!--<td>{{ ticket.error }}</td>-->
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Некорретно оформленные тикеты не найдены</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}

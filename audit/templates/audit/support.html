@@ -1,0 +1,317 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>Работа контактного центра (техническая поддержка)</h1>
+        <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
+        {% if events_period %}
+            <h3>Статистика обработки входящих звонков</h3>
+            <div class="row">
+                <canvas id="stat_period" width="400" height="100"></canvas>
+            </div>
+            <h3>Статистика обработки входящих звонков в процентах</h3>
+            <div class="row">
+                <canvas id="stat_pr_period" width="400" height="100"></canvas>
+            </div>
+            <h3>Медиана времени ожидания</h3>
+            <div class="row">
+                <canvas id="stat_hold_period" width="400" height="100"></canvas>
+            </div>
+        {% endif %}
+        {% if noanswers_period %}
+            <h3>Статистика звонков по пропущенным вызовам</h3>
+            <p>Данные не вполне корректны, поскольку в базе phonedb некторые записи перезаписываются</p>
+            <div class="row">
+                <canvas id="noanswers_period" width="400" height="100"></canvas>
+            </div>
+        {% endif %}
+        {% if events|length < 50 %}
+        <div>
+            <h3>События в очереди</h3>
+            <table class="table table-hover" >
+                <thead>
+                    <tr>
+                        <th class="text-center">Дата</th>
+                        <th>callid</th>
+                        <th>Агент</th>
+                        <th>Событие</th>
+                        <th>data1</th>
+                        <th>data2</th>
+                        <th>data3</th>
+                        <th>data4</th>
+                        <th>data5</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td>{{ event.date_event|date:'Y-m-d h:i:s' }}</td>
+                        <td>{{ event.callid }}</td>
+                        <td>{{ event.agent }}</td>
+                        <td>{{ event.event }}</td>
+                        <td>{{ event.data1 }}</td>
+                        <td>{{ event.data2 }}</td>
+                        <td>{{ event.data3 }}</td>
+                        <td>{{ event.data4 }}</td>
+                        <td>{{ event.data5 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif%}
+    </div>
+</div>
+<div class="row">
+    {% if not_recalls %}
+        <h2>Пропущенные вызовы</h2>
+        <p>Всего пропущено вызовов: {{ not_recalls|length }}</p>
+        {% if not_recalls|length < 50 %}
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Номер телефона</th>
+                        <th>Количество попыток перезвонить</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for not_recall in not_recalls %}
+                        <tr>
+                            <td>{{ not_recall.date|date:'Y-m-d h:i:s' }}</td>
+                            <td>{{ not_recall.callid }}</td>
+                            <td>{{ not_recall.retry }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock content %}
+
+
+{% block js-block %}
+<script>
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+function concatColor(color, count) {
+    var colors = []
+    for (var i = 0; i < count; i++) {
+        colors[i] = color
+    }
+    return colors
+}
+
+
+var lables_data = [{% for stat in events_period %} '{{ stat.date|date:'Y-m-d' }}', {% endfor %}];
+var color = ['red', 'green', 'orange', 'orangered', 'indigo', 'limegreen',
+'turquoise', 'blueviolet', 'aquamarine', 'tomato', 'gold', 'khaki',
+'orchid', 'darkmagenta', 'royalblue', 'teal', 'midnightblue'];
+
+// График статистики обработки входящих звонков
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Входящих звонков",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in events_period %} {{ stat.count }}, {% endfor %}],
+            },
+            {
+            label: "Обработано звонков",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in events_period %} {{ stat.complete }}, {% endfor %}],
+            },
+            {
+            label: "Пропущено звонков",
+            backgroundColor: 'transparent',
+            borderColor: 'green',
+            data: [{% for stat in events_period %} {{ stat.abandon }}, {% endfor %}],
+            },
+            {
+            label: "Пропущено звонков (ожидание > 14c)",
+            backgroundColor: 'transparent',
+            borderColor: 'orange',
+            data: [{% for stat in events_period %} {{ stat.abandon_15 }}, {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+// График статистики обработки входящих звонков в процентах
+var ctx_stat_pr_period = document.getElementById("stat_pr_period");
+var stat_pr_period = new Chart(ctx_stat_pr_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Обработано звонков",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in events_period %} ({{ stat.complete }}*100/{{ stat.count }}).toFixed(2), {% endfor %}],
+            },
+            {
+            label: "Пропущено звонков",
+            backgroundColor: 'transparent',
+            borderColor: 'green',
+            data: [{% for stat in events_period %} ({{ stat.abandon }}*100/{{ stat.count }}).toFixed(2), {% endfor %}],
+            },
+            {
+            label: "Пропущено звонков (ожидание > 14c)",
+            backgroundColor: 'transparent',
+            borderColor: 'orange',
+            data: [{% for stat in events_period %} ({{ stat.abandon_15 }}*100/{{ stat.count }}).toFixed(2), {% endfor %}],
+            },
+            {
+            label: "Звонков с holdtime < 15",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in events_period %} ({{ stat.count_hold_time_15 }}*100/{{ stat.count }}).toFixed(2), {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+// График для статистики проведённых работ в процентах
+var ctx_stat_hold_period = document.getElementById("stat_hold_period");
+var stat_hold_period = new Chart(ctx_stat_hold_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Время ожидания ответа",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in events_period %} {{ stat.hold_time }}, {% endfor %}],
+            },
+            {
+            label: "Время ожидания ответа (пропущенные вызовы)",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in events_period %} {{ stat.hold_time_abandon }}, {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+// График статистики "перезвонов"
+var ctx_noanswers_period = document.getElementById("noanswers_period");
+var noanswers_period = new Chart(ctx_noanswers_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_data,
+        datasets: [
+            {
+            label: "Потерянные звонки",
+            backgroundColor: 'transparent',
+            borderColor: 'blue',
+            data: [{% for stat in noanswers_period %} {{ stat.count_no_recall }}, {% endfor %}],
+            },
+            {
+            label: "Перезвонили (callback)",
+            backgroundColor: 'transparent',
+            borderColor: 'red',
+            data: [{% for stat in noanswers_period %} {{ stat.count_recall }}, {% endfor %}],
+            },
+            {
+            label: "Дозвонились самостоятельно",
+            backgroundColor: 'transparent',
+            borderColor: 'orange',
+            data: [{% for stat in noanswers_period %} {{ stat.count_call }}, {% endfor %}],
+            },
+            {
+            label: "Всего пропущенных звонков (уникальных)",
+            backgroundColor: 'transparent',
+            borderColor: 'green',
+            data: [{% for stat in noanswers_period %} {{ stat.count }}, {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+
+</script>
+{% endblock js-block %}

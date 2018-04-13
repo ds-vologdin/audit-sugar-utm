@@ -1,0 +1,339 @@
+{% extends "audit/base.html" %}
+
+{% load staticfiles %}
+
+{% block js-import %}
+<!-- Подключаем Chart.js --> 
+<script src="{% static 'chartjs/Chart.js' %}"></script>
+{% endblock js-import %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xs-12">
+        <h1>ТОП абонентов с отсутствующим сервисом</h1>
+        <h3>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h3>
+        <div class="row">
+            <p>Медиана остановок сервиса (по клиентам): {{ statistics.mediana|floatformat:2 }}</p>
+            <canvas id="duration" width="400" height="100"></canvas>
+        </div>
+        {% if  probability_dur_comp and probability_dur_man%}
+        <div class="row">
+            <h2>Вероятность устранения проблемы</h2>
+            <canvas id="duration_probability" width="400" height="100"></canvas>
+        </div>
+        {% endif %}
+        {% if statistics_period %}
+        <div class="row">
+            <h2>Помесячная статистика по тикетам</h2>
+            <canvas id="stat_period" width="400" height="100"></canvas>
+        </div>
+        {% endif %}
+        <div class="row">
+            <div class="col-xs-6">
+                <h2 class="text-center">Юридические лица</h2>
+                <canvas id="duration_pie_company" width="100" height="100"></canvas>
+            </div>
+            <div class="col-xs-6">
+                <h2 class="text-center">Физические лица</h2>
+                <canvas id="duration_pie_man" width="100" height="100"></canvas>
+            </div>
+        </div>
+        <div class="row">
+            <h2>Коэффицент готовности</h2>
+            <p>Тикетов с низким коэффициентом готовности: {{ statistics.kg_bad }}</p>
+            <div class="col-xs-4">
+                <h3 class="text-center">По всем тикетам</h3>
+                <canvas id="kg_bad_pie" width="100" height="100"></canvas>
+            </div>
+            <div class="col-xs-4">
+                <h3 class="text-center">Юр. лица</h3>
+                <canvas id="kg_bad_pie_company" width="100" height="100"></canvas>
+            </div>
+            <div class="col-xs-4">
+                <h3 class="text-center">Физ. лица</h3>
+                <canvas id="kg_bad_pie_man" width="100" height="100"></canvas>
+            </div>
+        </div>
+        <p><a href="{{ request.path }}csv/">Сгенерировать csv</a></p>
+        <p><a href="#man">Физические лица</a></p>
+        <p><a name="company"></a></p> 
+        <h2>Юридические лица</h2>
+        {% if accounts_company %}
+            <p>Всего {{ accounts_company|length }} контрагентов.</p>
+            <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">#</th>
+                    <th>Абонент</th>
+                    <th>Тикеты</th>
+                    <th class="text-center">Сервис отсутсвовал, ч.</th>
+                    <th class="text-center">Коэффициент готовности</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for account in accounts_company %}
+                    {% if account.kg < 0.98 %}
+                    <tr class="danger">
+                    {% elif account.kg < 0.99 %}
+                    <tr class="warning">
+                    {% else %}
+                    <tr>
+                    {% endif %}
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ account.id }}">{{ account.name }} - {{ account.address }}</a>
+                        </td>
+                        <td>
+                            {% for bug in account.bugs %}
+                             <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }}({{ bug.duration|floatformat }})</a>
+                            {% endfor %}
+                        </td>
+                        <td class="text-center">{{ account.duration|floatformat }}</td>
+                        <td class="text-center">{{ account.kg|floatformat:6 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Данных не найдено</p>
+        {% endif %}
+        <p><a name="man"></a></p> 
+        <h2>Физические лица</h2>
+        <p><a href="#company">Юридические лица</a></p>
+        {% if accounts_man %}
+            <p>Всего {{ accounts_man|length }} контрагентов.</p>
+            <table class="table table-hover" >
+                <thead>
+                <tr>
+                    <th class="text-center">#</th>
+                    <th>Абонент</th>
+                    <th>Тикеты</th>
+                    <th class="text-center">Сервис отсутсвовал, ч.</th>
+                    <th class="text-center">Коэффициент готовности</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for account in accounts_man %}
+                    {% if account.kg < 0.98 %}
+                    <tr class="danger">
+                    {% elif account.kg < 0.99 %}
+                    <tr class="warning">
+                    {% else %}
+                    <tr>
+                    {% endif %}
+                        <td class="text-center">{{ forloop.counter }}</td>
+                        <td>
+                            <a href="http://crm.kgts.su/sugarcrm/index.php?module=Accounts&action=DetailView&record={{ account.id }}">{{ account.name }} - {{ account.address }}</a>
+                        </td>
+                        <td>
+                            {% for bug in account.bugs %}
+                             <a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }}({{ bug.duration|floatformat }})</a>
+                            {% endfor %}
+                        </td>
+                        <td class="text-center">{{ account.duration|floatformat }}</td>
+                        <td class="text-center">{{ account.kg|floatformat:6 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Данных не найдено</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block js-block %}
+<script>
+//для генерации рандомных цветов
+function getRandomColor() {
+  var letters = '0123456789ABCDEF';
+  var color = '#';
+  for (var i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+var color_perf = [{% for duration in durations_company %} getRandomColor(), {% endfor %}]
+var lables_dur = [{% for duration in durations_company %} '{{ duration.0 }}', {% endfor %}]
+// График для статистики проведённых работ в процентах
+var ctx_duration = document.getElementById("duration");
+var duration = new Chart(ctx_duration, {
+// The type of chart we want to create
+    type: 'bar',
+    // The data for our dataset
+    data: {
+        labels: lables_dur,
+        datasets: [{
+            label: "Юридические лица",
+            data: [{% for duration in durations_company %} {{ duration.1 }}, {% endfor %}],
+            backgroundColor: [{% for duration in durations_company %} "blue", {% endfor %}],
+            },
+            {
+            label: "Физические лица",
+            data: [{% for duration in durations_man %} {{ duration.1 }}, {% endfor %}],
+            backgroundColor: [{% for duration in durations_company %} "red", {% endfor %}],
+            },
+        ],
+    },
+});
+
+var ctx_duration_probability = document.getElementById("duration_probability");
+var duration_probability = new Chart(ctx_duration_probability, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_dur,
+        datasets: [{
+            label: "Юридические лица",
+            backgroundColor: 'transparent',
+            borderColor: "blue",
+            data: [{% for duration in probability_dur_comp %} {{ duration.1 }}, {% endfor %}],
+            },
+            {
+            label: "Физические лица",
+            backgroundColor: 'transparent',
+            borderColor: "red",
+            data: [{% for duration in probability_dur_man %} {{ duration.1 }}, {% endfor %}],
+            },
+        ],
+    },
+});
+
+
+{% if statistics_period %}
+var lables_date = [{% for stat in statistics_period %}"{{ stat.date|date:'Y-m' }}", {% endfor %}]
+
+var ctx_stat_period = document.getElementById("stat_period");
+var stat_period = new Chart(ctx_stat_period, {
+// The type of chart we want to create
+    type: 'line',
+    // The data for our dataset
+    data: {
+        labels: lables_date,
+        datasets: [{
+            label: "Тикетов с остановкой сервиса",
+            backgroundColor: 'transparent',
+            borderColor: "blue",
+            data: [{% for stat in statistics_period %} {{ stat.count }}, {% endfor %}],
+            },
+            {
+            label: "Медиана",
+            backgroundColor: 'transparent',
+            borderColor: "red",
+            data: [{% for stat in statistics_period %} {{ stat.mediana }}, {% endfor %}],
+            },
+            {
+            label: "Среднее арифметическое",
+            backgroundColor: 'transparent',
+            borderColor: "green",
+            data: [{% for stat in statistics_period %} {{ stat.avg }}, {% endfor %}],
+            },
+            {
+            label: "Среднеквадратичное отклонение",
+            backgroundColor: 'transparent',
+            borderColor: "orange",
+            data: [{% for stat in statistics_period %} {{ stat.dev_sqrt }}, {% endfor %}],
+            },
+            {
+            label: "Коэффициент вариации",
+            backgroundColor: 'transparent',
+            borderColor: "tomato",
+            data: [{% for stat in statistics_period %} {{ stat.k_var }}, {% endfor %}],
+            },
+        ],
+    },
+    // Configuration options go here
+    options: {
+        scales: {
+            yAxes: [{
+                display: true,
+                ticks: {
+                    suggestedMin: 0,    // minimum will be 0, unless there is a lower value.
+                    // OR //
+                    beginAtZero: true   // minimum value will be 0.
+                }
+            }]
+        }
+    }
+});
+{% endif %}
+var ctx_duration_pie = document.getElementById("duration_pie_company");
+var duration = new Chart(ctx_duration_pie, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: lables_dur,
+        datasets: [{
+            label: "Юридические лица",
+            data: [{% for duration in durations_company %} {{ duration.1 }}, {% endfor %}],
+            backgroundColor: color_perf
+            },
+],
+    },
+});
+var ctx_duration_pie = document.getElementById("duration_pie_man");
+var duration = new Chart(ctx_duration_pie, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: lables_dur,
+        datasets: [
+            {
+            label: "Физические лица",
+            data: [{% for duration in durations_man %} {{ duration.1 }}, {% endfor %}],
+            backgroundColor: color_perf
+            },],
+    },
+});
+
+var ctx_kg_bad_pie_man = document.getElementById("kg_bad_pie_man");
+var kg_bad_pie_man = new Chart(ctx_kg_bad_pie_man, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: ['< 0.99', '>= 0.99'],
+        datasets: [
+            {
+            data: [{{ statistics.kg_man_bad_pr }}, 100 - {{ statistics.kg_man_bad_pr }}],
+            backgroundColor: ['red','green'],
+            },],
+    },
+});
+
+var ctx_kg_bad_pie_company = document.getElementById("kg_bad_pie_company");
+var kg_bad_pie_company = new Chart(ctx_kg_bad_pie_company, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: ['< 0.99', '>= 0.99'],
+        datasets: [
+            {
+            data: [{{ statistics.kg_company_bad_pr }}, 100 - {{ statistics.kg_company_bad_pr }}],
+            backgroundColor: ['red','green'],
+            },],
+    },
+});
+var ctx_kg_bad_pie = document.getElementById("kg_bad_pie");
+var kg_bad_pie = new Chart(ctx_kg_bad_pie, {
+// The type of chart we want to create
+    type: 'pie',
+    // The data for our dataset
+    data: {
+        labels: ['< 0.99', '>= 0.99'],
+        datasets: [
+            {
+            data: [{{ statistics.kg_bad_pr }}, 100 - {{ statistics.kg_bad_pr }}],
+            backgroundColor: ['red','green'],
+            },],
+    },
+});
+</script>
+{% endblock js-block %}
