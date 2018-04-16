@@ -15,12 +15,6 @@ import configparser
 
 
 # Настраиваем логирование
-# logging.basicConfig(
-        # filename='/var/log/django/django.log',
-        # level=logging.DEBUG,
-        # format='%(asctime)s %(name)-12s %(funcName)s %(levelname)s: %(message)s'
-    # )
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -67,7 +61,7 @@ SECRET_KEY = '#z9g5m**p87_lds4!a@@_=drp!eo#&c=oeyvxcb$8vokk9=r0u'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.3.249', 'django', '192.168.128.43']
+ALLOWED_HOSTS = ['10.0.3.249', 'django', '192.168.128.43', '10.0.3.16']
 
 
 # Application definition
@@ -212,6 +206,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = '/home/bud/django/static/'
 
 # Настраиваем КЭШ
 CACHES = {
