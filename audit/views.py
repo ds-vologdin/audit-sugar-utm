@@ -1411,15 +1411,14 @@ month="%s"' %
     return render(request, 'audit/tickets_open.html', context)
 
 
-def gen_ticket_bad_fill(db, date_begin, date_end):
+def fetch_tickets_bad_fill(date_begin, date_end):
     '''Функция генерации статистики по тикетам за заданный период.
     Определяет распределение тикетов по локализаци, по типам проведения работ,
     по ремени отсуствия сервиса у абонентов
     '''
     from audit.crmdict import bug_perform_list, bug_localisation_list
 
-    if date_begin > date_end:
-        return None
+    db = MySqlDB()
 
     sql = '''SELECT t1.id, t1.bug_number, CONVERT_TZ(t1.date_entered,'+00:00',\
 '+03:00'),
@@ -1429,65 +1428,60 @@ t2.duration_min_c
 FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
 WHERE t1.date_entered >= '%s' AND t1.date_entered <= '%s'
 AND (t2.perform_c is Null OR t2.perform_c = ''
-OR t2.localisation_c is Null OR t2.localisation_c = '')
+OR t2.perform_c = 'none'
+OR t2.localisation_c is Null OR t2.localisation_c = ''
+OR t2.localisation_c = 'none')
 AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    try:
-        tickets = db.sqlQuery(sql)
-    except:
-        return None
-    if len(tickets) == 0:
-        return None
+    tickets = db.sqlQuery(sql)
 
     tickets_dicts = []
     for ticket in tickets:
         # Переводим локализации из терминов CRM в человеческий язык
         # Формируем список
-        localization = []
-        if ticket[7] is not None or ticket[7] == '':
-            for loc in ticket[7].split(','):
-                if loc in bug_localisation_list:
-                    localization.append(bug_localisation_list.get(loc))
-                else:
-                    localization.append(loc)
+        localization = [
+            bug_localisation_list.get(loc, loc)
+            for loc in ticket[7].split(',')
+            if (ticket[7] is not None or ticket[7] == '')
+        ]
+
         # Переводим выполненые работы из терминов CRM  в человеческий язык
         # Формируем список
-        perform = []
-        if ticket[6] is not None or ticket[6] == '':
-            for loc in ticket[6].split(','):
-                if loc in bug_perform_list:
-                    perform.append(bug_perform_list.get(loc))
-                else:
-                    perform.append(loc)
+        perform = [
+            bug_perform_list.get(perf, perf)
+            for perf in ticket[6].split(',')
+            if (ticket[6] is not None or ticket[6] == '')
+        ]
 
         # Расчитываем время отсутствия сервиса
-        duration = 0.0
-        if ticket[8] is not None:
-            duration += ticket[8]
-            if ticket[9] is not None:
-                duration += round(ticket[9]/60, 2)
+        duration = ticket[8] if ticket[8] is not None else 0.0
 
-        tickets_dicts.append({'id': ticket[0],  # id тикета
-                              'number': ticket[1],  # номер тикета
-                              'date_entered': ticket[2],  # дата создания
-                              'date_close': ticket[3],  # дата закрытия тикета
-                              'group': ticket[4],  # ответственная группа
-                              'status': ticket[5],  # статус тикета
-                              'perform': perform,  # список выполненных работ
-                              'loc': localization,  # локализация
-                              'dur': duration, })  # остановка сервиса
+        if ticket[9] is not None:
+            duration += round(ticket[9]/60, 2)
+
+        tickets_dicts.append(
+            {'id': ticket[0],               # id тикета
+             'number': ticket[1],           # номер тикета
+             'date_entered': ticket[2],     # дата создания
+             'date_close': ticket[3],       # дата закрытия тикета
+             'group': ticket[4],            # ответственная группа
+             'status': ticket[5],           # статус тикета
+             'perform': perform,            # список выполненных работ
+             'loc': localization,           # локализация
+             'dur': duration, }             # остановка сервиса
+        )
     return tickets_dicts
 
 
 def tickets_bad_fill(request, year='', month='', csv_flag=False, last='month'):
     '''Вывод списка неверно оформленных тикетов
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
-    if not request.user.groups.filter(name__exact='tickets').exists():
+    users_auth, group_auth = verify_permission_user(request, group='tickets')
+    if not users_auth or not group_auth:
+        logger.error('autentification error, user "%s"' % request.user)
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
+                   'error': 'Не хватает прав! Перелогинтесь...',
                    }
         return render(request, 'audit/error.html', context)
 
@@ -1500,15 +1494,7 @@ month="%s"' %
     # Формируем даты начала и конеца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
-
-    db = MySqlDB()
-
-    tickets = gen_ticket_bad_fill(db, date_begin, date_end)
+    tickets = fetch_tickets_bad_fill(date_begin, date_end)
 
     if csv_flag:
         import csv
@@ -1524,26 +1510,27 @@ month="%s"' %
         writer.writerow(['number', 'date_entered', 'date_close', 'group',
                          'status', 'perform', 'localization', 'duration'])
         for ticket in tickets:
-            writer.writerow([ticket.get('number'), ticket.get('date_entered'),
-                             ticket.get('date_close'), ticket.get('group'),
-                             ticket.get('status'),
-                             ', '.join(ticket.get('perform')),
-                             ', '.join(ticket.get('loc')), ticket.get('dur')])
+            writer.writerow(
+                [ticket.get('number'), ticket.get('date_entered'),
+                 ticket.get('date_close'), ticket.get('group'),
+                 ticket.get('status'),
+                 ', '.join(ticket.get('perform')),
+                 ', '.join(ticket.get('loc')), ticket.get('dur')]
+            )
         return response
-    else:
-        months_report = gen_last_months(last=12)
-        if year == '':
-            type_report = 'last'
-        else:
-            type_report = 'date'
-        context = {'tickets': tickets,
-                   'date_begin': date_begin,
-                   'date_end': date_end,
-                   'months': months_report,
-                   'type': type_report,
-                   'menu_url': '/audit/tickets/bad_fill/',
-                   }
-        return render(request, 'audit/bad_fill.html', context)
+
+    # Флаг csv_flag не задан
+    months_report = gen_last_months(last=12)
+    type_report = gen_type_report(year, month)
+
+    context = {'tickets': tickets,
+               'date_begin': date_begin,
+               'date_end': date_end,
+               'months': months_report,
+               'type': type_report,
+               'menu_url': '/audit/tickets/bad_fill/',
+               }
+    return render(request, 'audit/bad_fill.html', context)
 
 
 def repeairs_dublicate(repairs_dub):
