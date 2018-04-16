@@ -436,10 +436,6 @@ month="%s"' %
             pays_stat_periods[i]['sum_balance'] = \
                 balances_periods[i].get('summ', 0)
 
-    # Расчитываем статистику по каждому периоду в report_period
-
-    # context = utmpays_stat_monthly(date_begin, date_end)
-
     # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
@@ -1517,7 +1513,7 @@ month="%s"' %
     return render(request, 'audit/bad_fill.html', context)
 
 
-def repeairs_dublicate(repairs_dub):
+def gen_ods_repairs_dublicate(repairs_dub):
     # Библиотеки для формирования ods файлов
     from odf.opendocument import OpenDocumentSpreadsheet
     from odf.style import Style, TextProperties, TableColumnProperties, \
@@ -1527,19 +1523,22 @@ def repeairs_dublicate(repairs_dub):
 
     report_ods = OpenDocumentSpreadsheet()
     tablecontents = Style(name="Large number", family="table-cell")
-    tablecontents.addElement(TextProperties(fontfamily="Arial",
-                                            fontsize="10pt"))
+    tablecontents.addElement(
+        TextProperties(fontfamily="Arial", fontsize="10pt")
+    )
     report_ods.styles.addElement(tablecontents)
 
     # Create automatic styles for the column widths.
     wideco1 = Style(name="co1", family="table-column")
-    wideco1.addElement(TableColumnProperties(columnwidth="3.5cm",
-                       breakbefore="auto"))
+    wideco1.addElement(
+        TableColumnProperties(columnwidth="3.5cm", breakbefore="auto")
+    )
     report_ods.automaticstyles.addElement(wideco1)
 
     wideco2 = Style(name="co2", family="table-column")
-    wideco2.addElement(TableColumnProperties(columnwidth="13.0cm",
-                       breakbefore="auto"))
+    wideco2.addElement(
+        TableColumnProperties(columnwidth="13.0cm", breakbefore="auto")
+    )
     report_ods.automaticstyles.addElement(wideco2)
 
     # Create automatic styles for the row widths.
@@ -1555,34 +1554,38 @@ def repeairs_dublicate(repairs_dub):
                          parentstylename=tablecontents)
     titlecontent.addElement(TextProperties(fontweight="bold"))
     titlecontent.addElement(ParagraphProperties(textalign="center"))
-    titlecontent.addElement(TextProperties(fontfamily="Arial",
-                            fontsize="12pt"))
+    titlecontent.addElement(
+        TextProperties(fontfamily="Arial", fontsize="12pt")
+    )
     report_ods.automaticstyles.addElement(titlecontent)
 
-    headtable = Style(name="ce3", family="table-cell",
-                      parentstylename=tablecontents)
+    headtable = Style(
+        name="ce3", family="table-cell", parentstylename=tablecontents
+    )
     headtable.addElement(TextProperties(fontweight="bold"))
     headtable.addElement(ParagraphProperties(textalign="center"))
     headtable.addElement(TextProperties(
         fontfamily="Arial", fontsize="10pt"))
-    headtable.addElement(TableCellProperties(
-        border="0.74pt solid #000000",
-        wrapoption="wrap",
-        verticalalign="middle"
-    ))
+    headtable.addElement(
+        TableCellProperties(border="0.74pt solid #000000",
+                            wrapoption="wrap",
+                            verticalalign="middle")
+    )
     report_ods.automaticstyles.addElement(headtable)
 
     textcenter = Style(name="ce4", family="table-cell",
                        parentstylename=tablecontents)
     textcenter.addElement(ParagraphProperties(textalign="center"))
-    textcenter.addElement(TableCellProperties(border="0.74pt solid \
-#000000",
-                                              wrapoption="wrap",
-                                              verticalalign="middle"))
+    textcenter.addElement(
+        TableCellProperties(border="0.74pt solid #000000",
+                            wrapoption="wrap",
+                            verticalalign="middle")
+    )
     report_ods.automaticstyles.addElement(textcenter)
 
-    text_cell = Style(name="ce5", family="table-cell",
-                      parentstylename=tablecontents)
+    text_cell = Style(
+        name="ce5", family="table-cell", parentstylename=tablecontents
+    )
     text_cell.addElement(
         TableCellProperties(border="0.74pt solid #000000",
                             wrapoption="wrap",
@@ -1595,10 +1598,12 @@ def repeairs_dublicate(repairs_dub):
 
     # Create a column (same as <col> in HTML)
     # Make all cells in column default to currency
-    table.addElement(TableColumn(stylename=wideco1,
-                                 defaultcellstylename="ce1"))
-    table.addElement(TableColumn(stylename=wideco2,
-                                 defaultcellstylename="ce1"))
+    table.addElement(
+        TableColumn(stylename=wideco1, defaultcellstylename="ce1")
+    )
+    table.addElement(
+        TableColumn(stylename=wideco2, defaultcellstylename="ce1")
+    )
     tr = TableRow()
     table.addElement(tr)
 
@@ -1630,7 +1635,6 @@ def repeairs_dublicate(repairs_dub):
     for repair in repairs_dub:
         repair_new = repair.get('new')
         repairs_old = repair.get('old')
-        # bugs = repair.get('bugs')
 
         # Создаём строку с названием контрагента
         tr = TableRow(stylename=roheighthead)
@@ -1655,8 +1659,9 @@ def repeairs_dublicate(repairs_dub):
 
         # Создаём стиль строки с "правильной" высотой
         roheightcstm = Style(name="ro%i" % i, family="table-row")
-        roheightcstm.addElement(TableRowProperties(rowheight="%fcm" %
-                                                   (count_line * 0.5)))
+        roheightcstm.addElement(
+            TableRowProperties(rowheight="%fcm" % (count_line * 0.5))
+        )
         report_ods.automaticstyles.addElement(roheightcstm)
         # Итератор больше не используется, потому его увеличиваем
         i += 1
@@ -1688,13 +1693,14 @@ def repeairs_dublicate(repairs_dub):
                 count_line += len(repair.get('description'))//60
             if repair.get('name'):
                 count_line += len(repair.get('name'))//60
-            if repair_new.get('comment'):
+            if repair.get('comment'):
                 count_line += len(repair.get('comment'))//60
 
             # Создаём стиль строки с "правильной" высотой
             roheightcstm = Style(name="ro%i" % i, family="table-row")
-            roheightcstm.addElement(TableRowProperties(rowheight="%fcm" %
-                                                       (count_line * 0.5)))
+            roheightcstm.addElement(
+                TableRowProperties(rowheight="%fcm" % (count_line * 0.5))
+            )
             report_ods.automaticstyles.addElement(roheightcstm)
             # Итератор больше не исполльзуется, потому его увеличиваем
             i += 1
@@ -1748,13 +1754,10 @@ month="%s"' %
 
     # Формируем даты начала и конеца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     # Ищем в базе ремонты
+    db = MySqlDB()
+
     sql = '''SELECT t1.name, t1.description, t2.comment_c, t3.last_name,
 t2.address_c, t4.name, t2.account_id_c, t2.status_c, t2.date_of_completion_c,
 t1.id
@@ -1766,11 +1769,9 @@ AND t1.deleted = 0
 ORDER BY t2.date_of_completion_c DESC
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    db = MySqlDB()
-
     repairs = db.sqlQuery(sql)
 
-    repairs_dub_list = []
+    repairs_dub_dicts = []
 
     for repair in repairs:
         # Словарь используем для наглядности
@@ -1781,12 +1782,12 @@ ORDER BY t2.date_of_completion_c DESC
                        'address': repair[4],
                        'account': repair[5],
                        'account_id': repair[6],
-                       'status': repair_status.get(repair[7]),
+                       'status': repair_status.get(repair[7], repair[7]),
                        'date': repair[8],
                        'id': repair[9],
                        }
 
-        # Ищем повторяющиеся ремонты
+        # Ищем повторяющиеся ремонты за предыдущие 30*6 дней
         sql = '''SELECT t1.name, t1.description, t2.comment_c, t3.last_name,
 t2.address_c, t4.name, t2.account_id_c, t2.status_c, t2.date_of_completion_c,
 t1.id
@@ -1799,60 +1800,64 @@ AND t1.deleted = 0
 ORDER BY t2.date_of_completion_c DESC
         ''' % (repair_dict['date'] - timedelta(days=30*6), repair_dict['date'],
                repair_dict['id'], repair_dict['account_id'])
+
         repairs_old = db.sqlQuery(sql)
 
-        if len(repairs_old) > 0:
-            # У контрагента ранее выполняли ремонты
-            # Сохраняем ремонт [ремонт, [ранее выполненные ремонты]]
-            repairs_old_list = []
-            for repair_old in repairs_old:
-                repair_old_dict = {'name': repair_old[0],
-                                   'description': repair_old[1],
-                                   'comment': repair_old[2],
-                                   'user': repair_old[3],
-                                   'address': repair_old[4],
-                                   'account': repair_old[5],
-                                   'account_id': repair_old[6],
-                                   'status': repair_status.get(repair_old[7]),
-                                   'date': repair_old[8],
-                                   'id': repair_old[9],
-                                   }
-                repairs_old_list.append(repair_old_dict)
+        if len(repairs_old) == 0:
+            # повторный ремонтов нет - переходим к следующей записи
+            continue
+        # У контрагента ранее выполняли ремонты
+        repairs_old_dicts = [
+            {'name': repair_old[0],
+             'description': repair_old[1],
+             'comment': repair_old[2],
+             'user': repair_old[3],
+             'address': repair_old[4],
+             'account': repair_old[5],
+             'account_id': repair_old[6],
+             'status': repair_status.get(repair_old[7]),
+             'date': repair_old[8],
+             'id': repair_old[9],
+             } for repair_old in repairs_old
+        ]
 
-            # Запрашиваем тикеты по данному контрагенту
-            sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
+        # Запрашиваем тикеты по данному контрагенту за последние 365 дней
+        sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
 FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
 LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
 WHERE t3.account_id = '%s' AND t1.date_entered >= '%s'
 ORDER BY t1.bug_number DESC
-            ''' % (repair_dict['account_id'],
-                   repair_dict['date'] - timedelta(days=365))
+        ''' % (repair_dict['account_id'],
+               repair_dict['date'] - timedelta(days=365))
 
-            bugs = db.sqlQuery(sql)
-            bugs_dicts = []
-            for bug in bugs:
-                bugs_dicts.append({'number': bug[0],
-                                   'date': bug[1],
-                                   'id': bug[2]})
+        bugs = db.sqlQuery(sql)
+        bugs_dicts = [
+            {'number': bug[0],
+             'date': bug[1],
+             'id': bug[2],
+             } for bug in bugs
+        ]
 
-            repairs_dub_list.append({'new': repair_dict,
-                                     'old': repairs_old_list,
-                                     'bugs': bugs_dicts})
-
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+        repairs_dub_dicts.append(
+            {'new': repair_dict,
+             'old': repairs_old_dicts,
+             'bugs': bugs_dicts}
+        )
 
     if file_type == 'ods':
         response = HttpResponse(content_type='application/ods')
         response['Content-Disposition'] = 'attachment; filename=\
 "repair_dublicat_%s_%s.ods"' % (date_begin, date_end)
-        # report_ods = OpenDocumentSpreadsheet()
-        report_ods = repeairs_dublicate(repairs_dub_list)
+        report_ods = gen_ods_repairs_dublicate(repairs_dub_dicts)
         report_ods.write(response)
         return response
 
-    context = {'repairs': repairs_dub_list,
+    # формируем html
+    months_report = gen_last_months(last=12)
+    years_report = gen_last_years(last=5)
+    type_report = gen_type_report(year=year, month=month)
+
+    context = {'repairs': repairs_dub_dicts,
                'date_begin': date_begin,
                'date_end': date_end,
                'months': months_report,
