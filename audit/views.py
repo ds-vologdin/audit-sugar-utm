@@ -12,6 +12,7 @@ from django.contrib import messages
 # Функция для установки сессионного ключа.
 # По нему django будет определять, выполнил ли вход пользователь.
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 
 from datetime import date, timedelta
 
@@ -52,18 +53,6 @@ class LogoutView(View):
 
 
 # Базовые функции
-def verify_permission_user(request, group='tickets'):
-    '''Функция проверки прав пользователя
-    '''
-    # Проверяем авторизован ли пользователь
-    users_auth = request.user.is_authenticated()
-    # Проверяем состоит ли в нужной группе
-    # планируется усложнение логики (права группы настраиваться должны в базе)
-    group_auth = request.user.groups.filter(name__exact=group).exists()
-
-    return users_auth, group_auth
-
-
 def gen_report_begin_end_date(year='', month='', last='month'):
     '''Функция формирования даты начала и конца отчётного периода'''
     if year == '':
@@ -240,6 +229,7 @@ def gen_report_periods(date_begin, date_end):
 # Конец базовых функций
 
 
+@login_required
 def index(request):
     '''Главная пустая страница :)
     '''
@@ -369,14 +359,13 @@ AND t1.out_balance > -15000 and t1.out_balance < 15000
     return balances_dicts
 
 
+@login_required
 def utmpays_statistic(request, year='', month='', csv_flag=False, last='year'):
     '''Функция формирует отчёт по платежам физ. лиц
     '''
-    users_auth, group_auth = verify_permission_user(request, group='utmpays')
-    if not users_auth or not group_auth:
-        logger.error('autentification error')
+    if not request.user.groups.filter(name__exact='utmpays').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 
@@ -768,15 +757,14 @@ def gen_ods_user_block_month(users_blok, date_start, date_stop):
     return report_ods
 
 
+@login_required
 def block_users_month(request, year='2017', month='01', ods=False):
     '''Функция формирования отчёта по заблокированным пользователям
     за заданный месяц
     '''
-    users_auth, group_auth = verify_permission_user(request, group='tickets')
-    if not users_auth or not group_auth:
-        logger.error('autentification error')
+    if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 
@@ -1160,14 +1148,13 @@ def gen_ods_hardware_remove(hardwares, date_stat):
     return report_ods
 
 
+@login_required
 def hardware_remove(request, year='2017', month='01', day='01', ods=False):
     '''Функция формирования отчёта по списку оборудования на снятие
     '''
-    users_auth, group_auth = verify_permission_user(request, group='tickets')
-    if not users_auth or not group_auth:
-        logger.error('autentification error')
+    if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 
@@ -1347,11 +1334,9 @@ def fetch_tickets_open_stat(dbCrm, date_begin, date_end):
 def tickets_open(request, year='', month='', csv_flag=False, last='month'):
     '''Вывод статистики по открытым тикетам
     '''
-    users_auth, group_auth = verify_permission_user(request, group='tickets')
-    if not users_auth or not group_auth:
-        logger.error('autentification error, user "%s"' % request.user)
+    if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 
@@ -1474,14 +1459,13 @@ AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
     return tickets_dicts
 
 
+@login_required
 def tickets_bad_fill(request, year='', month='', csv_flag=False, last='month'):
     '''Вывод списка неверно оформленных тикетов
     '''
-    users_auth, group_auth = verify_permission_user(request, group='tickets')
-    if not users_auth or not group_auth:
-        logger.error('autentification error, user "%s"' % request.user)
+    if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 
@@ -1738,6 +1722,7 @@ def repeairs_dublicate(repairs_dub):
     return report_ods
 
 
+@login_required
 def repairs_dublicate(request, year='', month='', csv_flag=False,
                       last='month', file_type=''):
     '''Функция формирования статистики по повторным ремонтам
@@ -1749,8 +1734,6 @@ def repairs_dublicate(request, year='', month='', csv_flag=False,
     '''
     from audit.crmdict import repair_status
 
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -1910,6 +1893,7 @@ def gen_repairs_stat_period(repairs_list, period):
     return {'all': period_count, 'done': period_count_done}
 
 
+@login_required
 def repairs_stat(request, year='', month='', csv_flag=False, last='month'):
     '''Функция формирования статистики по выполненным ремонтам
     year - стастика за конкретный год
@@ -1921,8 +1905,6 @@ def repairs_stat(request, year='', month='', csv_flag=False, last='month'):
     from itertools import groupby
     from audit.crmdict import repair_status, cat_work
 
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2028,6 +2010,7 @@ ORDER BY t2.date_of_completion_c DESC
     return render(request, 'audit/repairs.html', context)
 
 
+@login_required
 def top_tickets(request, year='', month='', csv_flag=False, last='month'):
     '''Функция формирования абонентов с большим количеством тикетов
     year - стастика за конкретный год
@@ -2036,8 +2019,6 @@ def top_tickets(request, year='', month='', csv_flag=False, last='month'):
         last = 'month' - за последние 30 дней
         last = 'year' - за последний год
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2113,6 +2094,7 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/top_tickets.html', context)
 
 
+@login_required
 def top_calls(request, year='', month='', csv_flag=False, last='month'):
     '''Функция формирования топ телефонных звонков в тех. поддержку
     year - стастика за конкретный год
@@ -2121,8 +2103,6 @@ def top_calls(request, year='', month='', csv_flag=False, last='month'):
         last = 'month' - за последние 30 дней
         last = 'year' - за последний год
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
 
@@ -2198,6 +2178,7 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/top_calls.html', context)
 
 
+@login_required
 def tickets_bad_fill_mass(request, year='', month='', csv_flag=False,
                           last='week'):
     '''Функция формирования списка массовых тикетов с подозрением на
@@ -2208,8 +2189,6 @@ def tickets_bad_fill_mass(request, year='', month='', csv_flag=False,
         last = 'month' - за последние 30 дней
         last = 'year' - за последний год
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2362,11 +2341,10 @@ def gen_distr_duration(accounts_list, interval=None):
     return durations
 
 
+@login_required
 def top_no_service(request, year='', month='', csv_flag=False, last='week'):
     '''Функция вывода ТОП абонентов с максимальным простоем сервиса
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2634,13 +2612,12 @@ WHERE t1.bug_id = '%s'
         return render(request, 'audit/top_no_service.html', context)
 
 
+@login_required
 def tickets_mass(request, year='', month='', csv_flag=False, last='week'):
     '''Генерация списка массовых тикетов
     '''
     from audit.crmdict import bug_localisation_list, bug_perform_list
 
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2765,6 +2742,7 @@ WHERE bug_id = '%s'
     return render(request, 'audit/tickets_mass.html', context)
 
 
+@login_required
 def gen_stat_survey(surveys, date_begin=None, date_end=None):
     '''Формирование статаистики по осмотрам
     Если date_begin и date_end не заданы, считаем статистику за весь период,
@@ -2834,14 +2812,13 @@ def gen_stat_survey(surveys, date_begin=None, date_end=None):
     return statistics
 
 
+@login_required
 def survey_report(request, year='', month='', csv_flag=False, last='week'):
     '''Генерация списка заявко на осмотры
     '''
     from itertools import groupby
     from audit.crmdict import status_survey, status_rs, status_ess
 
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -3034,12 +3011,11 @@ def gen_week_period(date_begin, date_end):
     return period
 
 
+@login_required
 def connections_report(request, year='', month='', csv_flag=False,
                        last='week'):
     '''Функция генерации отчёта по плану работ
     '''
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -3275,12 +3251,12 @@ def gen_support_period(events, period):
     return stat_period
 
 
+@login_required
 def support_report(request, year='', month='', csv_flag=False, last='week'):
     '''Функция генерации отчёта по работе callcenter техподдержки
     '''
     from .models import QueueLog, TpNoAnswered
-    if not request.user.is_authenticated():
-        return HttpResponseRedirect('/audit/login/')
+
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -3394,15 +3370,14 @@ def is_bad_feedback(question):
     return False
 
 
+@login_required
 def acc_question_stat(request, year='', month='', csv_flag=False, last='week'):
     '''Функция генерации отчёта по работе callcenter техподдержки
     '''
     # Проверяем права пользователя
-    users_auth, group_auth = verify_permission_user(request, group='tickets')
-    if not users_auth or not group_auth:
-        logger.error('autentification error')
+    if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
-                   'error': 'Не хватает прав! Перелогинтесь...',
+                   'error': 'Не хватает прав!'
                    }
         return render(request, 'audit/error.html', context)
 

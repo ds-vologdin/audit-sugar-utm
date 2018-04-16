@@ -215,3 +215,6 @@ CACHES = {
         'LOCATION': '/var/tmp/django_cache',
     }
 }
+
+# URL для авторизации
+LOGIN_URL = '/audit/login/'
