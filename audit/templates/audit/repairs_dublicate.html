@@ -2,7 +2,7 @@
 
 {% block content %}
 <h1>Отчёт по повторным ремонтам за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h1>
-<p><a href="{{request.path}}ods/">Сохранить ods</p>
+<p><a href="{{request.path}}ods/">Сохранить ods</a></p>
 {% if repairs %}
     <table class="table table-hover">
         <thead>
