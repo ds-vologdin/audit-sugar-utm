@@ -61,6 +61,7 @@ urlpatterns = [
                  url(r'^(?P<last>\w+)/csv/$',
                      (views.tickets_open),
                      {'csv_flag': True}), ])),
+
     # ex. /audit/tickets/bad_fill/
     url(r'^tickets/bad_fill/$',
         cache_page(CACHE_TIME)(views.tickets_bad_fill)),
@@ -109,16 +110,18 @@ urlpatterns = [
                      cache_page(CACHE_TIME)(views.repairs_dublicate),),
                  url(r'^(?P<last>\w+)/(?P<file_type>\w+)/$',
                      cache_page(CACHE_TIME)(views.repairs_dublicate),), ])),
-    # ex. /audit/repairs/dublicate/2018/
-    url(r'^repairs/dublicate/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.repairs_dublicate)),
-    url(r'^repairs/dublicate/(?P<year>[0-9]{4})/(?P<file_type>\w+)$',
-        cache_page(CACHE_TIME)(views.repairs_dublicate)),
-    # ex. /audit/repairs/dublicate/2018/01/
-    url(r'^repairs/dublicate/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.repairs_dublicate)),
-    url(r'^repairs/dublicate/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<file_type>\w+)/$',
-        cache_page(CACHE_TIME)(views.repairs_dublicate)),
+    # ex. /audit/repairs/dublicate/2018/02/ods/
+    url(r'^repairs/dublicate/',
+        include([
+            url(r'(?P<year>[0-9]{4})/$',
+                cache_page(CACHE_TIME)(views.repairs_dublicate)),
+            url(r'(?P<year>[0-9]{4})/(?P<file_type>\w+)$',
+                cache_page(CACHE_TIME)(views.repairs_dublicate)),
+            url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
+                cache_page(CACHE_TIME)(views.repairs_dublicate)),
+            url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<file_type>\w+)/$',
+                cache_page(CACHE_TIME)(views.repairs_dublicate)),
+        ])),
 
     # ex. /audit/top_tickets/
     url(r'^top_tickets/$', cache_page(CACHE_TIME)(views.top_tickets),
