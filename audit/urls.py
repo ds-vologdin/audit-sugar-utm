@@ -2,7 +2,7 @@ from django.conf.urls import url, include
 from django.views.decorators.cache import cache_page
 from . import views
 
-CACHE_TIME = 60 * 15
+CACHE_TIME = 1 * 15
 
 app_name = 'audit'
 urlpatterns = [
@@ -62,7 +62,8 @@ urlpatterns = [
                      (views.tickets_open),
                      {'csv_flag': True}), ])),
     # ex. /audit/tickets/bad_fill/
-    url(r'^tickets/bad_fill/$', cache_page(CACHE_TIME)(views.tickets_bad_fill)),
+    url(r'^tickets/bad_fill/$',
+        cache_page(CACHE_TIME)(views.tickets_bad_fill)),
     # ex. /audit/tickets/bad_fill/csv/
     url(r'^tickets/bad_fill/csv/$',
         cache_page(CACHE_TIME)(views.tickets_bad_fill),
@@ -82,18 +83,17 @@ urlpatterns = [
 
     # ex. /audit/tickets/bad_fill/last
     url(r'^tickets/bad_fill/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                     cache_page(CACHE_TIME)(views.tickets_bad_fill),),
-                 url(r'^(?P<last>\w+)/csv/$',
-                     cache_page(CACHE_TIME)(views.tickets_bad_fill),
-                     {'csv_flag': True}), ])),
-    # ex. /audit/repairs/
-    url(r'^repairs/$', cache_page(CACHE_TIME)(views.repairs_dublicate),
-        {'last': 'month'}),
+        include(
+            [url(r'^(?P<last>\w+)/$',
+                 cache_page(CACHE_TIME)(views.tickets_bad_fill),),
+             url(r'^(?P<last>\w+)/csv/$',
+                 cache_page(CACHE_TIME)(views.tickets_bad_fill),
+                 {'csv_flag': True}), ])
+        ),
+
     # ex. /audit/repairs/last/...
-    url(r'^repairs/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                cache_page(CACHE_TIME)(views.repairs_stat),), ])),
+    url(r'^repairs/last/(?P<last>\w+)/$',
+        cache_page(CACHE_TIME)(views.repairs_stat),),
     # ex. /audit/repairs/2018/
     url(r'^repairs/(?P<year>[0-9]{4})/$',
         cache_page(CACHE_TIME)(views.repairs_stat)),
