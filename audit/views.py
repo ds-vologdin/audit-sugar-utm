@@ -136,13 +136,12 @@ def gen_last_months(last=12):
 def gen_last_years(last=5):
     ''' Функция генерации списка последних лет для выпадающего списка меню
     '''
-    years_report = []
-    date_iter = date(year=date.today().year, month=1, day=1)
-    date_end = date(year=date.today().year - last, month=1, day=1)
+    date_cur = date.today().replace(month=1, day=1)
 
-    while date_iter > date_end:
-        years_report.append(date_iter)
-        date_iter = date_iter.replace(year=date_iter.year - 1)
+    years_report = [
+        date_cur.replace(year=date_cur.year - i)
+        for i in range(last)
+    ]
     return years_report
 
 
