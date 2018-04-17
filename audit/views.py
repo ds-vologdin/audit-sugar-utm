@@ -139,7 +139,7 @@ def gen_last_years(last=5):
     date_cur = date.today().replace(month=1, day=1)
 
     years_report = [
-        date_cur.replace(year=date_iter.year - i)
+        date_cur.replace(year=date_cur.year - i)
         for i in range(last)
     ]
     return years_report
