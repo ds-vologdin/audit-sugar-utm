@@ -2747,7 +2747,6 @@ WHERE bug_id = '%s'
     return render(request, 'audit/tickets_mass.html', context)
 
 
-@login_required
 def gen_stat_survey(surveys, date_begin=None, date_end=None):
     '''Формирование статаистики по осмотрам
     Если date_begin и date_end не заданы, считаем статистику за весь период,
@@ -2819,7 +2818,7 @@ def gen_stat_survey(surveys, date_begin=None, date_end=None):
 
 @login_required
 def survey_report(request, year='', month='', csv_flag=False, last='week'):
-    '''Генерация списка заявко на осмотры
+    '''Генерация списка заявок на осмотры
     '''
     from itertools import groupby
     from audit.crmdict import status_survey, status_rs, status_ess
@@ -2838,11 +2837,6 @@ month="%s"' %
 
     # Формируем даты начала и конеца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     db = MySqlDB()
 
