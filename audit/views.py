@@ -67,10 +67,10 @@ def gen_report_begin_end_date(year='', month='', last='month'):
             date_begin = date_end - timedelta(days=90)
         elif last == 'year':
             date_begin = date_end.replace(year=(date_end.year-1), day=1)
-        elif last == '3years':
-            date_begin = date_end.replace(year=(date_end.year-3), day=1)
         elif last == '2years':
             date_begin = date_end.replace(year=(date_end.year-2), day=1)
+        elif last == '3years':
+            date_begin = date_end.replace(year=(date_end.year-3), day=1)
 
         return date_begin, date_end
 
