@@ -35,32 +35,20 @@ urlpatterns = [
         cache_page(CACHE_TIME)(views.hardware_remove), {'ods': True}),
 
     # ex. /audit/tickets/
-    url(r'^tickets/$', (views.tickets_open)),
-    # ex. /audit/tickets/2018/
-    url(r'^tickets/(?P<year>[0-9]{4})/$',
-        (views.tickets_open)),
-    # ex. /audit/tickets/2018/01/
-    url(r'^tickets/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        (views.tickets_open)),
-    # ex. /audit/tickets/csv/
-    url(r'^tickets/csv/$',
-        (views.tickets_open), {'csv_flag': True}),
-    # ex. /audit/tickets/2018/csv/
-    url(r'^tickets/(?P<year>[0-9]{4})/csv/$',
-        (views.tickets_open),
-        {'csv_flag': True}),
-    # ex. /audit/tickets/2018/01/csv/
-    url(r'^tickets/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/csv/$',
-        (views.tickets_open),
-        {'csv_flag': True}),
-
-    # ex. /audit/tickets/last/...
-    url(r'^tickets/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                     (views.tickets_open),),
-                 url(r'^(?P<last>\w+)/csv/$',
-                     (views.tickets_open),
-                     {'csv_flag': True}), ])),
+    url(r'^tickets/', include([
+        url(r'(?P<year>[0-9]{4})/$',
+            cache_page(CACHE_TIME)(views.tickets_open)),
+        url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
+            cache_page(CACHE_TIME)(views.tickets_open)),
+        url(r'(?P<year>[0-9]{4})/csv/$',
+            cache_page(CACHE_TIME)(views.tickets_open), {'csv_flag': True}),
+        url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/csv/$',
+            cache_page(CACHE_TIME)(views.tickets_open), {'csv_flag': True}),
+        url(r'last/(?P<last>\w+)/$',
+            cache_page(CACHE_TIME)(views.tickets_open)),
+        url(r'last/(?P<last>\w+)/csv/$',
+            cache_page(CACHE_TIME)(views.tickets_open), {'csv_flag': True}),
+        ])),
 
     # ex. /audit/tickets/bad_fill/
     url(r'^tickets/bad_fill/$',
