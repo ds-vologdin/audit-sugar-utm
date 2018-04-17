@@ -111,28 +111,25 @@ def gen_last_months(last=12):
     >>> len(gen_last_months(2))
     2
     '''
-
-    last = abs(last)
-    months_report = []
     date_iter = date.today().replace(day=1)
-    date_end = date.today()
 
-    if date_end.month > last % 12:
-        year_end = date_end.year - last//12
-        month_end = date_end.month - last % 12
+    # Расчитываем дату последнего месяца
+    if date_iter.month > last % 12:
+        year_end = date_iter.year - last//12
+        month_end = date_iter.month - last % 12
     else:
-        year_end = date_end.year - last//12 - 1
-        month_end = date_end.month - last % 12 + 12
-
+        year_end = date_iter.year - last//12 - 1
+        month_end = date_iter.month - last % 12 + 12
     date_end = date(year=year_end, month=month_end, day=1)
 
+    # Формируем список месяцев
+    months_report = []
     while date_iter > date_end:
         months_report.append(date_iter)
         if date_iter.month == 1:
             date_iter = date_iter.replace(year=date_iter.year - 1, month=12)
         else:
             date_iter = date_iter.replace(month=date_iter.month - 1)
-
     return months_report
 
 
