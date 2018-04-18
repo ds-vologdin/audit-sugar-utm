@@ -2056,21 +2056,19 @@ ORDER BY t1.bug_number DESC
         ''' % (account['account_id'])
         bugs = db.sqlQuery(sql)
         # Свежие тикеты
-        bugs_dicts = [
+        account['bugs'] = [
             {'number': bug[0],
              'date': bug[1],
              'id': bug[2],
              } for bug in bugs if bug[1].date() >= date_begin
         ]
         # Старые тикеты
-        bugs_old_dicts = [
+        account['bugs_old'] = [
             {'number': bug[0],
              'date': bug[1],
              'id': bug[2],
              } for bug in bugs if bug[1].date() < date_begin
         ]
-        account['bugs'] = bugs_dicts
-        account['bugs_old'] = bugs_old_dicts
 
     context = {'accounts': accounts_many_bugs_dicts,
                'date_begin': date_begin,
@@ -2081,7 +2079,7 @@ ORDER BY t1.bug_number DESC
 
 
 @login_required
-def top_calls(request, year='', month='', csv_flag=False, last='month'):
+def top_calls(request, year='', month='', last='month', csv_flag=False):
     '''Функция формирования топ телефонных звонков в тех. поддержку
     year - стастика за конкретный год
     month - статистика за конкретный месяц
@@ -2102,13 +2100,11 @@ month="%s"' %
             (request.user, top_calls.__name__, last, year, month)
         )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
+
+    # Запрашиваем список телефонных номеров с количеством вонков в саппорт
+    db = MySqlDB()
     sql = '''SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(t1.name,' ', -3),' ',1) \
 phone,
 count(t1.id) count_calls, t2.accounts_calls_1accounts_ida account_id, t3.name
@@ -2125,37 +2121,41 @@ OR SUBSTRING_INDEX(SUBSTRING_INDEX(t1.name,' ', -3),' ',1) = "226002")
 GROUP BY phone
 ORDER BY count_calls DESC
     ''' % (date_begin, date_end)
-    db = MySqlDB()
 
     calls = db.sqlQuery(sql)
 
-    calls_dicts = []
-    for call in calls:
+    calls_dicts = [
+        {'number': call[0],
+         'count_calls': call[1],
+         'account_id': call[2],
+         'account': call[3],
+         } for call in calls
+    ]
+    for call in calls_dicts:
+        # Запрашиваем список тикетов по каждому абонету
         sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
 FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
 LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
 WHERE t3.account_id = '%s'
 ORDER BY t1.bug_number DESC
-        ''' % call[2]
+        ''' % call['account_id']
+
         bugs = db.sqlQuery(sql)
-        bugs_dicts = []
-        bugs_old_dicts = []
-        for bug in bugs:
-            if bug[1].date() >= date_begin:
-                bugs_dicts.append({'number': bug[0],
-                                   'date': bug[1],
-                                   'id': bug[2]})
-            else:
-                bugs_old_dicts.append({'number': bug[0],
-                                       'date': bug[1],
-                                       'id': bug[2]})
-        calls_dicts.append({'number': call[0],
-                            'count_calls': call[1],
-                            'account_id': call[2],
-                            'account': call[3],
-                            'bugs': bugs_dicts,
-                            'bugs_old': bugs_old_dicts,
-                            })
+        # Свежие тикеты
+        call['bugs'] = [
+            {'number': bug[0],
+             'date': bug[1],
+             'id': bug[2],
+             } for bug in bugs if bug[1].date() >= date_begin
+        ]
+        # Старые тикеты
+        call['bugs_old'] = [
+            {'number': bug[0],
+             'date': bug[1],
+             'id': bug[2],
+             } for bug in bugs if bug[1].date() < date_begin
+        ]
+
     context = {'calls': calls_dicts,
                'date_begin': date_begin,
                'date_end': date_end,
