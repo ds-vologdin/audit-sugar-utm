@@ -6,6 +6,7 @@ CACHE_TIME = 1 * 15
 
 
 def gen_url_year_month_last(view_function, csv_flag=False, ods_flag=False):
+    # last - week, month, quarter, year, 2year, 3year
     urlpatterns = [
         url(r'^(?P<year>[0-9]{4})/$',
             cache_page(CACHE_TIME)(view_function)),
@@ -42,30 +43,22 @@ urlpatterns = [
     # ex. /audit/
     url(r'^$', views.index, name='index'),
 
-    # ex. /audit/utmpays/last/...
-    # last - week, month, quarter, year, 2year, 3year
-    url(r'^utmpays/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.utmpays_statistic)),
-    # ex. /audit/utmpays/2018/
-    url(r'^utmpays/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.utmpays_statistic)),
-    # ex. /audit/utmpays/2018/01/
-    url(r'^utmpays/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.utmpays_statistic)),
+    # ex. /audit/utmpays
+    url(r'^utmpays/', include(
+        gen_url_year_month_last(views.utmpays_statistic)
+    )),
 
-    # ex. /audit/block/2017/07/
-    url(r'^block/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.block_users_month)),
-    # ex. /audit/block/2017/07/ods
-    url(r'^block/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/ods$',
-        cache_page(CACHE_TIME)(views.block_users_month), {'ods': True}),
+    # ex. /audit/block/
+    url(r'^block/', include(
+        gen_url_year_month_last(views.block_users_month, ods_flag=True)
+    )),
 
     # ex. /audit/hwremove/2017/07/03/01/
     url(r'^hwremove/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/$',
         cache_page(CACHE_TIME)(views.hardware_remove)),
     # ex. /audit/hwremove/2017/07/03/01/ods
-    url(r'^hwremove/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/ods$',
-        cache_page(CACHE_TIME)(views.hardware_remove), {'ods': True}),
+    url(r'^hwremove/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/ods/$',
+        cache_page(CACHE_TIME)(views.hardware_remove), {'ods_flag': True}),
 
     # ex. /audit/tickets/
     url(r'^tickets/', include(
@@ -82,116 +75,55 @@ urlpatterns = [
         gen_url_year_month_last(views.repairs_stat)
     )),
 
-    # ex. /audit/repairs/dublicate/last/...
-    # file_type - может быть ods
-    # last - week, month, quarter, year, 2year, 3year
-    url(r'^repairs/dublicate/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                     cache_page(CACHE_TIME)(views.repairs_dublicate),),
-                 url(r'^(?P<last>\w+)/(?P<file_type>\w+)/$',
-                     cache_page(CACHE_TIME)(views.repairs_dublicate),), ])),
-    # ex. /audit/repairs/dublicate/2018/02/ods/
-    url(r'^repairs/dublicate/',
-        include([
-            url(r'(?P<year>[0-9]{4})/$',
-                cache_page(CACHE_TIME)(views.repairs_dublicate)),
-            url(r'(?P<year>[0-9]{4})/(?P<file_type>\w+)$',
-                cache_page(CACHE_TIME)(views.repairs_dublicate)),
-            url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-                cache_page(CACHE_TIME)(views.repairs_dublicate)),
-            url(r'(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/(?P<file_type>\w+)/$',
-                cache_page(CACHE_TIME)(views.repairs_dublicate)),
-        ])),
+    # ex. /audit/dublicate/
+    url(r'^repairs/dublicate/', include(
+        gen_url_year_month_last(views.repairs_dublicate, ods_flag=True)
+    )),
 
     # ex. /audit/top_tickets/
-    url(r'^top_tickets/$', cache_page(CACHE_TIME)(views.top_tickets),
-        {'last': 'month'}),
-    # ex. /audit/top_tickets/last/...
-    url(r'^top_tickets/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                cache_page(CACHE_TIME)(views.top_tickets),), ])),
+    url(r'^top_tickets/', include(
+        gen_url_year_month_last(views.top_tickets)
+    )),
+
     # ex. /audit/top_calls/
-    url(r'^top_calls/$', views.top_calls, {'last': 'month'}),
-    # ex. /audit/top_calls/last/...
-    url(r'^top_calls/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                cache_page(CACHE_TIME)(views.top_calls),), ])),
+    url(r'^top_calls/', include(
+        gen_url_year_month_last(views.top_calls)
+    )),
 
-    # ex. /audit/bad_fill_mass/last/...
-    url(r'^tickets/bad_fill_mass/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                     cache_page(CACHE_TIME)(views.tickets_bad_fill_mass),), ])),
+    # ex. /audit/tickets/bad_fill_mass/
+    url(r'^tickets/bad_fill_mass/', include(
+        gen_url_year_month_last(views.tickets_bad_fill_mass)
+    )),
 
-    # ex. /audit/tickets/top_no_service/last/...
-    url(r'^tickets/top_no_service/last/',
-        include([url(r'^(?P<last>\w+)/$',
-                 cache_page(CACHE_TIME)(views.top_no_service),),
-                 url(r'^(?P<last>\w+)/csv/$',
-                     cache_page(CACHE_TIME)(views.top_no_service),
-                     {'csv_flag': True}), ])),
-    # ex. /audit/tickets/top_no_service/2018/01/
-    url(r'^tickets/top_no_service/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.top_no_service)),
-    # ex. /audit/tickets/top_no_service/2018/01/csv/
-    url(r'^tickets/top_no_service/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/csv/$',
-        cache_page(CACHE_TIME)(views.top_no_service), {'csv_flag': True}),
-    # ex. /audit/tickets/top_no_service/2018/
-    url(r'^tickets/top_no_service/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.top_no_service)),
-    # ex. /audit/tickets/top_no_service/2018/csv/
-    url(r'^tickets/top_no_service/(?P<year>[0-9]{4})/csv/$',
-        cache_page(CACHE_TIME)(views.top_no_service), {'csv_flag': True}),
+    # ex. /audit/tickets/top_no_service/
+    url(r'^tickets/top_no_service/', include(
+        gen_url_year_month_last(views.top_no_service, csv_flag=True)
+    )),
 
-    # ex. /audit/tickets/mass/last/...
-    url(r'^tickets/mass/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.tickets_mass)),
-    # ex. /audit/tickets/mass/2018/
-    url(r'^tickets/mass/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.tickets_mass)),
-    # ex. /audit/tickets/mass/2018/01/
-    url(r'^tickets/mass/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.tickets_mass)),
+    # ex. /audit/tickets/mass/
+    url(r'^tickets/mass/', include(
+        gen_url_year_month_last(views.tickets_mass)
+    )),
 
-    # ex. /audit/survey/last/...
-    url(r'^survey/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.survey_report)),
-    # ex. /audit/survey/2018/
-    url(r'^survey/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.survey_report)),
-    # ex. /audit/survey/2018/01/
-    url(r'^survey/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.survey_report)),
+    # ex. /audit/survey/
+    url(r'^survey/', include(
+        gen_url_year_month_last(views.survey_report)
+    )),
 
-    # ex. /audit/connections/last/...
-    url(r'^connections/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.connections_report)),
-    # ex. /audit/connections/2018/
-    url(r'^connections/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.connections_report)),
-    # ex. /audit/connections/2018/01/
-    url(r'^connections/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.connections_report)),
+    # ex. /audit/connections/
+    url(r'^connections/', include(
+        gen_url_year_month_last(views.connections_report)
+    )),
 
-    # ex. /audit/support/last/...
-    url(r'^support/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.support_report)),
-    # ex. /audit/support/2018/
-    url(r'^support/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.support_report)),
-    # ex. /audit/support/2018/01/
-    url(r'^support/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.support_report)),
+    # ex. /audit/support/
+    url(r'^support/', include(
+        gen_url_year_month_last(views.support_report)
+    )),
 
-    # ex. /audit/acc_question/last/...
-    # last - week, month, quarter, year, 2year, 3year
-    url(r'^acc_question/last/(?P<last>\w+)/$',
-        cache_page(CACHE_TIME)(views.acc_question_stat)),
-    # ex. /audit/acc_question/2018/
-    url(r'^acc_question/(?P<year>[0-9]{4})/$',
-        cache_page(CACHE_TIME)(views.acc_question_stat)),
-    # ex. /audit/acc_question/2018/01/
-    url(r'^acc_question/(?P<year>[0-9]{4})/(?P<month>[0-9]{2})/$',
-        cache_page(CACHE_TIME)(views.acc_question_stat)),
+    # ex. /audit/acc_question/
+    url(r'^acc_question/', include(
+        gen_url_year_month_last(views.acc_question_stat)
+    )),
 
     url(r'^login/$', views.LoginFormView.as_view()),
     url(r'^logout/$', views.LogoutView.as_view()),

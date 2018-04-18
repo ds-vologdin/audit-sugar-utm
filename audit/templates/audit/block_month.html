@@ -23,7 +23,7 @@
         <h1>Блокировка за {{ date_begin|date:'Y-m' }}</h1>
         {% if blocks %}
             <p>Всего заблокировано {{ blocks|length }} абонентов</p>
-            <p><a href="/audit/block/{{ date_begin|date:'Y/m' }}/ods">Загрузить ods</a></p>
+            <p><a href="/audit/block/{{ date_begin|date:'Y/m' }}/ods/">Загрузить ods</a></p>
             <table class="table table-hover">
                 <thead>
                     <tr>

@@ -23,7 +23,7 @@
         <h1>Снятие оборудования на {{ date_stat|date:'Y-m-d' }}</h1>
         {% if hw_removes %}
             <p>Всего оборудования на съём: {{ hw_removes|length }} шт.</p>
-            <p><a href="/audit/hwremove/{{ date_stat|date:'Y/m/d' }}/ods">Загрузить ods</a></p>
+            <p><a href="/audit/hwremove/{{ date_stat|date:'Y/m/d' }}/ods/">Загрузить ods</a></p>
             <table class="table table-hover">
                 <thead>
                     <tr>

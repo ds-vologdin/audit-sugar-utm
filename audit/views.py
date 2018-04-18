@@ -750,7 +750,7 @@ def gen_ods_user_block_month(users_blok, date_start, date_stop):
 
 
 @login_required
-def block_users_month(request, year='2017', month='01', ods=False):
+def block_users_month(request, year='2017', month='01', ods_flag=False):
     '''Функция формирования отчёта по заблокированным пользователям
     за заданный месяц
     '''
@@ -774,7 +774,7 @@ def block_users_month(request, year='2017', month='01', ods=False):
     # Для выпадающего списка меню
     months_report = gen_last_months(last=12)
 
-    if ods:
+    if ods_flag:
         # Запрошен отчёт в ods файле
         response = HttpResponse(content_type='application/ods')
         response['Content-Disposition'] = 'attachment; filename=\
@@ -1141,7 +1141,8 @@ def gen_ods_hardware_remove(hardwares, date_stat):
 
 
 @login_required
-def hardware_remove(request, year='2017', month='01', day='01', ods=False):
+def hardware_remove(request, year='2017', month='01', day='01',
+                    ods_flag=False):
     '''Функция формирования отчёта по списку оборудования на снятие
     '''
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -1160,7 +1161,7 @@ def hardware_remove(request, year='2017', month='01', day='01', ods=False):
     # Запрашиваем у БД список оборудования на снятие
     hardwares = fetch_hardwares_remove(date_stat)
 
-    if ods:
+    if ods_flag:
         # Запрошен отчёт в ods файле
         response = HttpResponse(content_type='application/ods')
         response['Content-Disposition'] = 'attachment; filename=\
@@ -1725,8 +1726,8 @@ def gen_ods_repairs_dublicate(repairs_dub):
 
 
 @login_required
-def repairs_dublicate(request, year='', month='', csv_flag=False,
-                      last='month', file_type=''):
+def repairs_dublicate(request, year='', month='', last='month',
+                      ods_flag=False):
     '''Функция формирования статистики по повторным ремонтам
     year - стастика за конкретный год
     month - статистика за конкретный месяц
@@ -1840,7 +1841,7 @@ ORDER BY t1.bug_number DESC
              'bugs': bugs_dicts}
         )
 
-    if file_type == 'ods':
+    if ods_flag:
         response = HttpResponse(content_type='application/ods')
         response['Content-Disposition'] = 'attachment; filename=\
 "repair_dublicat_%s_%s.ods"' % (date_begin, date_end)
@@ -2012,7 +2013,7 @@ ORDER BY t2.date_of_completion_c DESC
 
 
 @login_required
-def top_tickets(request, year='', month='', csv_flag=False, last='month'):
+def top_tickets(request, year='', month='', last='month', csv_flag=False):
     '''Функция формирования абонентов с большим количеством тикетов
     year - стастика за конкретный год
     month - статистика за конкретный месяц
