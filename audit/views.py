@@ -2164,9 +2164,52 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/top_calls.html', context)
 
 
+def find_account_in_desc(account, description):
+    '''Поиск в строке (описание тикета) название организации
+    возвращаем True, если название организации в строке найдено
+    False - не найдено
+    '''
+    find_acc = -1
+
+    description = description.lower().replace(',', '').replace('\r', '').\
+        replace('(', ' ').replace(')', ' ').replace('"', ' ').\
+        replace('\'', ' ')
+    for line in description.splitlines():
+        # Смотрим описание построчно
+        find_acc = line[:10+len(account)].find(account)
+        if find_acc == -1:
+            continue
+        if find_acc > 10:
+            # Название организации должно быть в начале строки
+            find_acc = -1
+            continue
+
+        # Организация найдена в описании тикета, дальше искать её
+        # смысла нет
+        end_char = find_acc+len(account)
+
+        if not (line[end_char:end_char+1] == '' or
+                line[end_char:end_char+1] == ' ' or
+                line[end_char:end_char+1] == '.' or
+                line[end_char:end_char+1] == ','):
+                # После acс_name должен быть или пробел,
+                # или конец строки
+                find_acc = -1
+                continue
+        if (find_acc == 0 or line[find_acc-1:find_acc] == ' '):
+            # Перед acс_name должен быть пробел, или это начало строки
+            # Выскакиваем из цикла, при этом find_acc > -1
+            break
+        else:
+            find_acc = -1
+    if find_acc > -1:
+        return True
+    return False
+
+
 @login_required
-def tickets_bad_fill_mass(request, year='', month='', csv_flag=False,
-                          last='week'):
+def tickets_bad_fill_mass(request, year='', month='', last='week',
+                          csv_flag=False):
     '''Функция формирования списка массовых тикетов с подозрением на
     неверное оформленние
     year - стастика за конкретный год
@@ -2183,11 +2226,6 @@ def tickets_bad_fill_mass(request, year='', month='', csv_flag=False,
 
     # Формируем даты начала и конеца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     logger.info(
             'user "%s" run function %s whith arguments last="%s" year="%s" \
@@ -2196,37 +2234,39 @@ month="%s"' %
         )
 
     db = MySqlDB()
-
+    # Получаем все тикеты за интересующий нас период
     sql = '''SELECT t1.id, LOWER(t1.description), t1.date_entered, \
 t1.bug_number
 FROM sugar.bugs t1
 WHERE t1.date_entered BETWEEN '%s' AND '%s'
+AND NOT t1.description = ''
     ''' % (date_begin, date_end + timedelta(days=1))
+
     bugs = db.sqlQuery(sql)
 
+    # Получаем всех контрагентов
     sql = '''SELECT t1.id, LOWER(t1.name)
 FROM sugar.accounts t1 LEFT JOIN sugar.accounts_cstm t2 ON t1.id = t2.id_c
 WHERE t2.status_acc_c= 'active' AND t2.company_acc_c = 1 AND t1.deleted = 0
     '''
     accounts = db.sqlQuery(sql)
 
+    # ищем массовые тикеты
     bugs_mass = []
     for bug in bugs:
-        # Смотрим каждый тикет
-        if not bug[1]:
-            continue
         # Запрашиваем все связи с контрагентами
         sql = '''SELECT t1.account_id, t2.name
 FROM accounts_bugs t1 LEFT JOIN accounts t2 ON t1.account_id = t2.id
 WHERE t1.bug_id = '%s'
         ''' % (bug[0])
         links = db.sqlQuery(sql)
-        links_dicts = []
-        for link in links:
-            links_dicts.append({'id': link[0],
-                                'name': link[1]})
+        links_dicts = [
+            {'id': link[0],
+             'name': link[1],
+             } for link in links
+        ]
+
         accounts_dicts = []
-        error = []
         for account in accounts:
             # ищем в описании тикета абонентов
             # поскольку в описании название организации может не вполне
@@ -2239,62 +2279,37 @@ WHERE t1.bug_id = '%s'
                 # Это особые организации, которые создаёт кучу ложных
                 # срабатываний
                 continue
-            find_acc = -1
-            desc = bug[1].lower().replace(',', '').replace('\r', '').\
-                replace('(', ' ').replace(')', ' ').replace('"', ' ').\
-                replace('\'', ' ')
-            for line in desc.split('\n'):
-                # Смотрим описание построчно
-                find_acc = line[:10+len(acс_name)].find(acс_name)
-                if find_acc > -1 and find_acc < 10:
-                    # Организация найдена в описании тикета, дальше искать её
-                    # смысла нет
-                    end_char = find_acc+len(acс_name)
-                    error.append('end: "%s" (%s)' %
-                                 (line[end_char:end_char+1], acс_name))
-                    if (line[end_char:end_char+1] == '' or
-                            line[end_char:end_char+1] == ' ' or
-                            line[end_char:end_char+1] == '.' or
-                            line[end_char:end_char+1] == ','):
-                            # После acс_name должен быть или пробел,
-                            # или конец строки
-                        if (find_acc == 0 or line[find_acc-1:find_acc] == ' '):
-                            # Перед acс_name должен быть пробел,
-                            # или это начало строки
-                            break
-                        else:
-                            find_acc = -1
-                    else:
-                        find_acc = -1
-                else:
-                    find_acc = -1
-            if find_acc > -1 and find_acc < 10:
-                # ловим только начало строк
-                link_flag = False
-                for link in links_dicts:
-                    # ищем в связях контрагент-тикет нашего контрагнета
-                    if account[0] == link['id']:
-                        link_flag = True
 
-                accounts_dicts.append({'id': account[0],
-                                       'name': account[1],
-                                       'link': link_flag})
+            if not find_account_in_desc(account=acс_name, description=bug[1]):
+                # Название организации в описании тикета не найдено
+                # переходим к следующей итерации (смотрим следующего
+                # контрагента)
+                continue
 
-        # bad_fill_flag = False
-        # for account in accounts_dicts:
-        #     if not account['link']:
-        #         bad_fill_flag = True
+            link_flag = False
+            for link in links_dicts:
+                # ищем в связях контрагент-тикет нашего контрагента
+                if account[0] == link['id']:
+                    # нашли абонента, больше нет смысла смотреть связки
+                    link_flag = True
+                    break
 
-        # if len(accounts_dicts) > 0 and bad_fill_flag:
+            accounts_dicts.append(
+                {'id': account[0],
+                 'name': account[1],
+                 'link': link_flag}
+            )
+
         if len(accounts_dicts) > 0:
-            bugs_mass.append({'id': bug[0],
-                              'number': bug[3],
-                              'desc': bug[1],
-                              'date': bug[2],
-                              'accounts': accounts_dicts,
-                              'links': links_dicts,
-                              'error': error,
-                              })
+            bugs_mass.append(
+                {'id': bug[0],
+                 'number': bug[3],
+                 'desc': bug[1],
+                 'date': bug[2],
+                 'accounts': accounts_dicts,
+                 'links': links_dicts,
+                 }
+            )
     context = {'tickets': bugs_mass,
                'date_begin': date_begin,
                'date_end': date_end,
