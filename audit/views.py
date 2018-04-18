@@ -2021,11 +2021,6 @@ month="%s"' %
 
     # Формируем даты начала и конеца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     sql = '''SELECT t4.name, t4.billing_address_street, t3.account_id, \
 COUNT(t1.id) count_bug
@@ -2043,38 +2038,41 @@ ORDER BY count_bug DESC
     db = MySqlDB()
 
     accounts = db.sqlQuery(sql)
-    accounts_dicts = []
-    for account in accounts:
-        if account[3] < 2:
-            continue
-        # Запрашиваем тикеты по данному контрагенту
+    accounts_many_bugs_dicts = [
+        {'account': account[0],
+         'address': account[1],
+         'account_id': account[2],
+         'count_bug': account[3],
+         } for account in accounts if account[3] > 1
+    ]
+
+    for account in accounts_many_bugs_dicts:
+        # Запрашиваем все тикеты по данному контрагенту
         sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
 FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
 LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
 WHERE t3.account_id = '%s'
 ORDER BY t1.bug_number DESC
-        ''' % (account[2])
+        ''' % (account['account_id'])
         bugs = db.sqlQuery(sql)
-        bugs_dicts = []
-        bugs_old_dicts = []
-        for bug in bugs:
-            if bug[1].date() >= date_begin:
-                bugs_dicts.append({'number': bug[0],
-                                   'date': bug[1],
-                                   'id': bug[2]})
-            else:
-                bugs_old_dicts.append({'number': bug[0],
-                                       'date': bug[1],
-                                       'id': bug[2]})
+        # Свежие тикеты
+        bugs_dicts = [
+            {'number': bug[0],
+             'date': bug[1],
+             'id': bug[2],
+             } for bug in bugs if bug[1].date() >= date_begin
+        ]
+        # Старые тикеты
+        bugs_old_dicts = [
+            {'number': bug[0],
+             'date': bug[1],
+             'id': bug[2],
+             } for bug in bugs if bug[1].date() < date_begin
+        ]
+        account['bugs'] = bugs_dicts
+        account['bugs_old'] = bugs_old_dicts
 
-        accounts_dicts.append({'account': account[0],
-                               'address': account[1],
-                               'account_id': account[2],
-                               'count_bug': account[3],
-                               'bugs': bugs_dicts,
-                               'bugs_old': bugs_old_dicts,
-                               })
-    context = {'accounts': accounts_dicts,
+    context = {'accounts': accounts_many_bugs_dicts,
                'date_begin': date_begin,
                'date_end': date_end,
                'menu_url': '/audit/top_tickets/',
