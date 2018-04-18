@@ -1956,18 +1956,18 @@ ORDER BY t2.date_of_completion_c DESC
     ]
 
     # Разбиваем отчётный период на отрезки
-    period = gen_report_periods(date_begin, date_end)
+    periods = gen_report_periods(date_begin, date_end)
 
     # Формируем статистику
     repairs_man_stat = {}
-    stat_period_all = gen_repairs_stat_periods(repairs_list, period)
+    stat_period_all = gen_repairs_stat_periods(repairs_list, periods)
     repairs_man_stat['all'] = stat_period_all
 
     # Разбиваем работы по исполнителям и считаем статистику по каждому из них
     def sort_user(x): return x.get('user')
     for k, g in groupby(sorted(repairs_list, key=sort_user), sort_user):
         repairs_man = list(g)
-        repairs_man_stat[k] = gen_repairs_stat_periods(repairs_man, period)
+        repairs_man_stat[k] = gen_repairs_stat_periods(repairs_man, periods)
 
     # Разбиваем работы по категориям работ и считаем по каждой статистику
     repairs_cat_work_stat = {}
@@ -1978,7 +1978,7 @@ ORDER BY t2.date_of_completion_c DESC
                         sort_cat_work):
         repairs_cat_work = list(g)
         repairs_cat_work_stat[k] = gen_repairs_stat_periods(
-            repairs_cat_work, period
+            repairs_cat_work, periods
         )
 
     months_report = gen_last_months(last=12)
