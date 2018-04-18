@@ -2164,75 +2164,81 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/top_calls.html', context)
 
 
-def find_account_in_desc(account, description):
-    '''Поиск в строке (описание тикета) название организации
+def find_account_in_line(account, line):
+    '''Поиск в строке названия организации
     возвращаем True, если название организации в строке найдено
     False - не найдено
     '''
-    find_acc = -1
+    # Ищем в начале строки название организации
+    find_acc = line[:10+len(account)].find(account)
+    if find_acc == -1:
+        return False
 
+    # С целью уменьшения ложных срабатываний проверяем, что после названия
+    # организации стоит пробел, точка, запятая или строка уже кончилась
+    end_char = find_acc+len(account)
+    if not (line[end_char:end_char+1] == '' or
+            line[end_char:end_char+1] == ' ' or
+            line[end_char:end_char+1] == '.' or
+            line[end_char:end_char+1] == ','):
+        return False
+
+    # Перед названием организации должен быть пробел, или это начало строки
+    if not (find_acc == 0 or line[find_acc-1:find_acc] == ' '):
+        return False
+
+    return True
+
+
+def find_account_in_desc(account, description):
+    '''Поиск в тексте описания тикета названия организации
+    возвращаем True, если название организации в строке найдено
+    False - не найдено
+    '''
+
+    # поскольку в описании название организации может не вполне
+    # соответствовать записи в crm пытаемся удалить "лишнее"
+    account = account.lower().replace(',', '').replace('ооо', '').\
+        replace('зао', '').replace('ип', '').strip()
+    if (account == 'точка' or account == 'мария' or
+        account == 'статус' or account == 'объект' or
+            account == 'виктория'):
+        # Это особые организации, которые создаёт кучу ложных
+        # срабатываний, поэтому сразу говорим, что ничего не нашли...
+        return False
+
+    # Флаг "найден ли контрагент"
+    find_acc = False
+
+    # Переформатируем description
     description = description.lower().replace(',', '').replace('\r', '').\
         replace('(', ' ').replace(')', ' ').replace('"', ' ').\
         replace('\'', ' ')
     for line in description.splitlines():
         # Смотрим описание построчно
-        find_acc = line[:10+len(account)].find(account)
-        if find_acc == -1:
-            continue
-        if find_acc > 10:
-            # Название организации должно быть в начале строки
-            find_acc = -1
-            continue
-
-        # Организация найдена в описании тикета, дальше искать её
-        # смысла нет
-        end_char = find_acc+len(account)
-
-        if not (line[end_char:end_char+1] == '' or
-                line[end_char:end_char+1] == ' ' or
-                line[end_char:end_char+1] == '.' or
-                line[end_char:end_char+1] == ','):
-                # После acс_name должен быть или пробел,
-                # или конец строки
-                find_acc = -1
-                continue
-        if (find_acc == 0 or line[find_acc-1:find_acc] == ' '):
-            # Перед acс_name должен быть пробел, или это начало строки
-            # Выскакиваем из цикла, при этом find_acc > -1
+        find_acc = find_account_in_line(account, line)
+        if find_acc:
+            # если контрагент найден, дальше строки смотреть не надо
             break
-        else:
-            find_acc = -1
-    if find_acc > -1:
-        return True
+
+    return find_acc
+
+
+def find_account_in_link_bugs(account_id, links_dicts):
+    '''Функция поиска в связках accounts_bugs интересующего нас контрагента
+    по id
+    '''
+    for link in links_dicts:
+        # ищем в связях контрагент-тикет нашего контрагента
+        if account_id == link['id']:
+            # нашли абонента, больше нет смысла смотреть связки
+            return True
     return False
 
 
-@login_required
-def tickets_bad_fill_mass(request, year='', month='', last='week',
-                          csv_flag=False):
-    '''Функция формирования списка массовых тикетов с подозрением на
-    неверное оформленние
-    year - стастика за конкретный год
-    month - статистика за конкретный месяц
-    last - статистика за последнее время
-        last = 'month' - за последние 30 дней
-        last = 'year' - за последний год
+def fetch_bugs_mass(date_begin, date_end):
+    '''Получить список масовых тикетов
     '''
-    if not request.user.groups.filter(name__exact='tickets').exists():
-        context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
-                   }
-        return render(request, 'audit/error.html', context)
-
-    # Формируем даты начала и конеца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
-
-    logger.info(
-            'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-            (request.user, tickets_bad_fill_mass.__name__, last, year, month)
-        )
-
     db = MySqlDB()
     # Получаем все тикеты за интересующий нас период
     sql = '''SELECT t1.id, LOWER(t1.description), t1.date_entered, \
@@ -2268,17 +2274,8 @@ WHERE t1.bug_id = '%s'
 
         accounts_dicts = []
         for account in accounts:
-            # ищем в описании тикета абонентов
-            # поскольку в описании название организации может не вполне
-            # соответствовать записи в crm пытаемся удалить "лишнее"
-            acс_name = account[1].lower().replace(',', '').replace('ооо', '').\
-                replace('зао', '').replace('ип', '').strip()
-            if (acс_name == 'точка' or acс_name == 'мария' or
-                acс_name == 'статус' or acс_name == 'объект' or
-                    acс_name == 'виктория'):
-                # Это особые организации, которые создаёт кучу ложных
-                # срабатываний
-                continue
+            # Ищем название организации в описании тикета
+            acс_name = account[1]
 
             if not find_account_in_desc(account=acс_name, description=bug[1]):
                 # Название организации в описании тикета не найдено
@@ -2286,13 +2283,11 @@ WHERE t1.bug_id = '%s'
                 # контрагента)
                 continue
 
-            link_flag = False
-            for link in links_dicts:
-                # ищем в связях контрагент-тикет нашего контрагента
-                if account[0] == link['id']:
-                    # нашли абонента, больше нет смысла смотреть связки
-                    link_flag = True
-                    break
+            # Проверяем есть ли интересующий нас контрагент в связках
+            # accounts_bugs
+            link_flag = find_account_in_link_bugs(
+                account_id=account[0], links_dicts=links_dicts
+            )
 
             accounts_dicts.append(
                 {'id': account[0],
@@ -2310,6 +2305,37 @@ WHERE t1.bug_id = '%s'
                  'links': links_dicts,
                  }
             )
+    return bugs_mass
+
+
+@login_required
+def tickets_bad_fill_mass(request, year='', month='', last='week',
+                          csv_flag=False):
+    '''Функция формирования списка массовых тикетов с подозрением на
+    неверное оформленние
+    year - стастика за конкретный год
+    month - статистика за конкретный месяц
+    last - статистика за последнее время
+        last = 'month' - за последние 30 дней
+        last = 'year' - за последний год
+    '''
+    if not request.user.groups.filter(name__exact='tickets').exists():
+        context = {'user': request.user.username,
+                   'error': 'Не хватает прав!'
+                   }
+        return render(request, 'audit/error.html', context)
+
+    # Формируем даты начала и конеца периода
+    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+
+    logger.info(
+            'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' %
+            (request.user, tickets_bad_fill_mass.__name__, last, year, month)
+        )
+    # Запрашиваем список массовых тикетов
+    bugs_mass = fetch_bugs_mass(date_begin, date_end)
+
     context = {'tickets': bugs_mass,
                'date_begin': date_begin,
                'date_end': date_end,
