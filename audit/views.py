@@ -1865,34 +1865,36 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/repairs_dublicate.html', context)
 
 
-def gen_repairs_stat_period(repairs_list, period):
+def gen_repairs_stat_periods(repairs_list, periods):
     '''Формируем статистику ремонтов
     '''
     from audit.crmdict import repair_status
-    # Формируем статистику по всем ремонтам
-    # Инициализируем словари {data: count}
-    period_count_dict = {}
-    period_count_done_dict = {}
-    for dt in period[:-1]:
-        period_count_dict[dt] = 0
-        period_count_done_dict[dt] = 0
 
-    for repair in repairs_list:
-        for i in range(len(period[:-1])):
-            dt = period[i]
-            dt_next = period[i+1]
-            if repair.get('date') >= dt and repair.get('date') < dt_next:
-                period_count_dict[dt] += 1
-                if repair.get('status') == repair_status.get('four'):
-                    period_count_done_dict[dt] += 1
+    statistic = []
+    for date_begin, date_end in periods:
+        # Формируем список ремонтов за текущий период
+        repeirs_cur = [
+            repair
+            for repair in repairs_list
+            if (repair.get('date') >= date_begin and
+                repair.get('date') < date_end)
+        ]
 
-    # Из словаря формируем список (с ним проще будет строить график в шаблоне)
-    period_count = [(key, period_count_dict.get(key))
-                    for key in sorted(period_count_dict)]
+        # Считаем количество ремонтов за период
+        count_repairs = len(repeirs_cur)
 
-    period_count_done = [(key, period_count_done_dict.get(key))
-                         for key in sorted(period_count_dict)]
-    return {'all': period_count, 'done': period_count_done}
+        # Считаем количество выполненных ремонтов
+        count_repeirs_done = 0
+        for repair in repeirs_cur:
+            if repair.get('status') == repair_status.get('four'):
+                count_repeirs_done += 1
+        # Сохраняем данные по периоду в словаре
+        statistic.append(
+            {'count_all': count_repairs,
+             'count_done': count_repeirs_done,
+             'date': date_begin}
+        )
+    return statistic
 
 
 @login_required
@@ -1919,13 +1921,8 @@ month="%s"' %
         (request.user, repairs_stat.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     # Ищем в базе ремонты
     sql = '''SELECT t1.name, t1.description, t2.comment_c, t3.last_name,
@@ -1943,43 +1940,34 @@ ORDER BY t2.date_of_completion_c DESC
 
     repairs = db.sqlQuery(sql)
 
-    repairs_list = []
-
-    for repair in repairs:
-        # Словарь используем для наглядности
-        user = repair[3]
-        if not user:
-            user = 'Исполнитель не задан'
-        cat = cat_work.get(repair[10])
-        if not cat:
-            cat = 'Категория работ не задана'
-        repair_dict = {'name': repair[0],
-                       'description': repair[1],
-                       'comment': repair[2],
-                       'user': user,
-                       'address': repair[4],
-                       'account': repair[5],
-                       'account_id': repair[6],
-                       'status': repair_status.get(repair[7]),
-                       'date': repair[8],
-                       'id': repair[9],
-                       'cat_work': cat,
-                       }
-        repairs_list.append(repair_dict)
+    repairs_list = [
+        {'name': repair[0],
+         'description': repair[1],
+         'comment': repair[2],
+         'user': repair[3] if repair[3] else 'Исполнитель не задан',
+         'address': repair[4],
+         'account': repair[5],
+         'account_id': repair[6],
+         'status': repair_status.get(repair[7], repair[7]),
+         'date': repair[8],
+         'id': repair[9],
+         'cat_work': cat_work.get(repair[10], 'Категория работ не задана'),
+         } for repair in repairs
+    ]
 
     # Разбиваем отчётный период на отрезки
-    period = gen_period(date_begin, date_end)
+    period = gen_report_periods(date_begin, date_end)
 
     # Формируем статистику
     repairs_man_stat = {}
-    stat_period_all = gen_repairs_stat_period(repairs_list, period)
+    stat_period_all = gen_repairs_stat_periods(repairs_list, period)
     repairs_man_stat['all'] = stat_period_all
 
     # Разбиваем работы по исполнителям и считаем статистику по каждому из них
     def sort_user(x): return x.get('user')
     for k, g in groupby(sorted(repairs_list, key=sort_user), sort_user):
         repairs_man = list(g)
-        repairs_man_stat[k] = gen_repairs_stat_period(repairs_man, period)
+        repairs_man_stat[k] = gen_repairs_stat_periods(repairs_man, period)
 
     # Разбиваем работы по категориям работ и считаем по каждой статистику
     repairs_cat_work_stat = {}
@@ -1989,11 +1977,9 @@ ORDER BY t2.date_of_completion_c DESC
     for k, g in groupby(sorted(repairs_list, key=sort_cat_work),
                         sort_cat_work):
         repairs_cat_work = list(g)
-        repairs_cat_work_stat[k] = gen_repairs_stat_period(repairs_cat_work,
-                                                           period)
-
-    # for stat in repairs_cat_work_stat.items():
-        # messages.info(request, stat)
+        repairs_cat_work_stat[k] = gen_repairs_stat_periods(
+            repairs_cat_work, period
+        )
 
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)

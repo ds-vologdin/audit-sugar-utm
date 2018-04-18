@@ -24,7 +24,7 @@
     </div>
     <p></p>
 {% endif %}
-{% if repairs|length < 60 %}
+{% if repairs|length < 100 %}
     <table class="table table-hover">
         <thead>
         <tr>
@@ -81,18 +81,18 @@ var stat_period = new Chart(ctx_stat_period, {
     type: 'line',
     // The data for our dataset
     data: {
-        labels: [{% for stat in repairs_man_stat.all.all %}'{{ stat.0|date:'Y-m-d' }}', {% endfor %}],
+        labels: [{% for stat in repairs_man_stat.all %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
         datasets: [{
             label: "Создано ремонтов",
             backgroundColor: 'transparent',
             borderColor: 'blue',
-            data: [{% for stat in repairs_man_stat.all.all %} {{ stat.1 }}, {% endfor %}],
+            data: [{% for stat in repairs_man_stat.all %} {{ stat.count_all }}, {% endfor %}],
             },
             {
             label: "Выполнено ремонтов",
             backgroundColor: 'transparent',
             borderColor: 'red',
-            data: [{% for stat in repairs_man_stat.all.done %} {{ stat.1 }}, {% endfor %}],
+            data: [{% for stat in repairs_man_stat.all %} {{ stat.count_done }}, {% endfor %}],
             },
             {% for man, stats in repairs_man_stat.items %}
                 {% if man != 'all' %}
@@ -100,7 +100,7 @@ var stat_period = new Chart(ctx_stat_period, {
                     label: "{{ man }}",
                     backgroundColor: 'transparent',
                     borderColor: getRandomColor(),
-                    data: [{% for stat in stats.done %} {{ stat.1 }}, {% endfor %}],
+                    data: [{% for stat in stats %} {{ stat.count_done }}, {% endfor %}],
                     },
                 {% endif %}
             {% endfor %}
@@ -129,18 +129,18 @@ var cat_work_stat_period = new Chart(ctx_cat_work_stat_period, {
     type: 'line',
     // The data for our dataset
     data: {
-        labels: [{% for stat in repairs_cat_work_stat.all.all %}'{{ stat.0|date:'Y-m-d' }}', {% endfor %}],
+        labels: [{% for stat in repairs_cat_work_stat.all %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
         datasets: [{
             label: "Создано ремонтов",
             backgroundColor: 'transparent',
             borderColor: 'blue',
-            data: [{% for stat in repairs_cat_work_stat.all.all %} {{ stat.1 }}, {% endfor %}],
+            data: [{% for stat in repairs_cat_work_stat.all %} {{ stat.count_all }}, {% endfor %}],
             },
             {
             label: "Выполнено ремонтов",
             backgroundColor: 'transparent',
             borderColor: 'red',
-            data: [{% for stat in repairs_cat_work_stat.all.done %} {{ stat.1 }}, {% endfor %}],
+            data: [{% for stat in repairs_cat_work_stat.all %} {{ stat.count_done }}, {% endfor %}],
             },
             {% for cat_work, stats in repairs_cat_work_stat.items %}
                 {% if cat_work != 'all' %}
@@ -148,7 +148,7 @@ var cat_work_stat_period = new Chart(ctx_cat_work_stat_period, {
                     label: "{{ cat_work }}",
                     backgroundColor: 'transparent',
                     borderColor: getRandomColor(),
-                    data: [{% for stat in stats.done %} {{ stat.1 }}, {% endfor %}],
+                    data: [{% for stat in stats %} {{ stat.count_done }}, {% endfor %}],
                     },
                 {% endif %}
             {% endfor %}
