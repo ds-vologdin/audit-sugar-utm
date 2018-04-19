@@ -13,16 +13,16 @@
         <h1>ТОП абонентов с отсутствующим сервисом</h1>
         <h3>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h3>
         <div class="row">
-            <p>Медиана остановок сервиса (по клиентам): {{ statistics.mediana|floatformat:2 }}</p>
+            <p>Медиана остановок сервиса (по клиентам): {{ statistics.all.mediana|floatformat:2 }}</p>
             <canvas id="duration" width="400" height="100"></canvas>
         </div>
-        {% if  probability_dur_comp and probability_dur_man%}
+
         <div class="row">
             <h2>Вероятность устранения проблемы</h2>
             <canvas id="duration_probability" width="400" height="100"></canvas>
         </div>
-        {% endif %}
-        {% if statistics_period %}
+
+        {% if statistics_periods %}
         <div class="row">
             <h2>Помесячная статистика по тикетам</h2>
             <canvas id="stat_period" width="400" height="100"></canvas>
@@ -40,7 +40,7 @@
         </div>
         <div class="row">
             <h2>Коэффицент готовности</h2>
-            <p>Тикетов с низким коэффициентом готовности: {{ statistics.kg_bad }}</p>
+            <p>Тикетов с низким коэффициентом готовности: {{ statistics.all.kg_bad }}</p>
             <div class="col-xs-4">
                 <h3 class="text-center">По всем тикетам</h3>
                 <canvas id="kg_bad_pie" width="100" height="100"></canvas>
@@ -157,8 +157,8 @@ function getRandomColor() {
 }
 
 var color_perf = [{% for duration in durations_company %} getRandomColor(), {% endfor %}]
-var lables_dur = [{% for duration in durations_company %} '{{ duration.0 }}', {% endfor %}]
-// График для статистики проведённых работ в процентах
+var lables_dur = [{% for duration in durations_company %} '{{ duration.time }}', {% endfor %}]
+
 var ctx_duration = document.getElementById("duration");
 var duration = new Chart(ctx_duration, {
 // The type of chart we want to create
@@ -168,13 +168,13 @@ var duration = new Chart(ctx_duration, {
         labels: lables_dur,
         datasets: [{
             label: "Юридические лица",
-            data: [{% for duration in durations_company %} {{ duration.1 }}, {% endfor %}],
+            data: [{% for duration in durations_company %} {{ duration.count }}, {% endfor %}],
             backgroundColor: [{% for duration in durations_company %} "blue", {% endfor %}],
             },
             {
             label: "Физические лица",
-            data: [{% for duration in durations_man %} {{ duration.1 }}, {% endfor %}],
-            backgroundColor: [{% for duration in durations_company %} "red", {% endfor %}],
+            data: [{% for duration in durations_man %} {{ duration.count }}, {% endfor %}],
+            backgroundColor: [{% for duration in durations_man %} "red", {% endfor %}],
             },
         ],
     },
@@ -191,21 +191,21 @@ var duration_probability = new Chart(ctx_duration_probability, {
             label: "Юридические лица",
             backgroundColor: 'transparent',
             borderColor: "blue",
-            data: [{% for duration in probability_dur_comp %} {{ duration.1 }}, {% endfor %}],
+            data: [{% for duration in durations_company %} {{ duration.probability }}, {% endfor %}],
             },
             {
             label: "Физические лица",
             backgroundColor: 'transparent',
             borderColor: "red",
-            data: [{% for duration in probability_dur_man %} {{ duration.1 }}, {% endfor %}],
+            data: [{% for duration in durations_man %} {{ duration.probability }}, {% endfor %}],
             },
         ],
     },
 });
 
 
-{% if statistics_period %}
-var lables_date = [{% for stat in statistics_period %}"{{ stat.date|date:'Y-m' }}", {% endfor %}]
+{% if statistics_periods %}
+var lables_date = [{% for stat in statistics_periods %}"{{ stat.date|date:'Y-m-d' }}", {% endfor %}]
 
 var ctx_stat_period = document.getElementById("stat_period");
 var stat_period = new Chart(ctx_stat_period, {
@@ -218,31 +218,31 @@ var stat_period = new Chart(ctx_stat_period, {
             label: "Тикетов с остановкой сервиса",
             backgroundColor: 'transparent',
             borderColor: "blue",
-            data: [{% for stat in statistics_period %} {{ stat.count }}, {% endfor %}],
+            data: [{% for stat in statistics_periods %} {{ stat.count }}, {% endfor %}],
             },
             {
             label: "Медиана",
             backgroundColor: 'transparent',
             borderColor: "red",
-            data: [{% for stat in statistics_period %} {{ stat.mediana }}, {% endfor %}],
+            data: [{% for stat in statistics_periods %} {{ stat.mediana }}, {% endfor %}],
             },
             {
             label: "Среднее арифметическое",
             backgroundColor: 'transparent',
             borderColor: "green",
-            data: [{% for stat in statistics_period %} {{ stat.avg }}, {% endfor %}],
+            data: [{% for stat in statistics_periods %} {{ stat.avg }}, {% endfor %}],
             },
             {
             label: "Среднеквадратичное отклонение",
             backgroundColor: 'transparent',
             borderColor: "orange",
-            data: [{% for stat in statistics_period %} {{ stat.dev_sqrt }}, {% endfor %}],
+            data: [{% for stat in statistics_periods %} {{ stat.dev_sqrt }}, {% endfor %}],
             },
             {
             label: "Коэффициент вариации",
             backgroundColor: 'transparent',
             borderColor: "tomato",
-            data: [{% for stat in statistics_period %} {{ stat.k_var }}, {% endfor %}],
+            data: [{% for stat in statistics_periods %} {{ stat.k_var }}, {% endfor %}],
             },
         ],
     },
@@ -270,7 +270,7 @@ var duration = new Chart(ctx_duration_pie, {
         labels: lables_dur,
         datasets: [{
             label: "Юридические лица",
-            data: [{% for duration in durations_company %} {{ duration.1 }}, {% endfor %}],
+            data: [{% for duration in durations_company %} {{ duration.count }}, {% endfor %}],
             backgroundColor: color_perf
             },
 ],
@@ -286,7 +286,7 @@ var duration = new Chart(ctx_duration_pie, {
         datasets: [
             {
             label: "Физические лица",
-            data: [{% for duration in durations_man %} {{ duration.1 }}, {% endfor %}],
+            data: [{% for duration in durations_man %} {{ duration.count }}, {% endfor %}],
             backgroundColor: color_perf
             },],
     },
@@ -301,7 +301,7 @@ var kg_bad_pie_man = new Chart(ctx_kg_bad_pie_man, {
         labels: ['< 0.99', '>= 0.99'],
         datasets: [
             {
-            data: [{{ statistics.kg_man_bad_pr }}, 100 - {{ statistics.kg_man_bad_pr }}],
+            data: [{{ statistics.man.kg_bad_per|floatformat:2 }}, 100 - {{ statistics.man.kg_bad_per|floatformat:2 }}],
             backgroundColor: ['red','green'],
             },],
     },
@@ -316,7 +316,7 @@ var kg_bad_pie_company = new Chart(ctx_kg_bad_pie_company, {
         labels: ['< 0.99', '>= 0.99'],
         datasets: [
             {
-            data: [{{ statistics.kg_company_bad_pr }}, 100 - {{ statistics.kg_company_bad_pr }}],
+            data: [{{ statistics.company.kg_bad_per|floatformat:2 }}, 100 - {{ statistics.company.kg_bad_per|floatformat:2 }}],
             backgroundColor: ['red','green'],
             },],
     },
@@ -330,7 +330,7 @@ var kg_bad_pie = new Chart(ctx_kg_bad_pie, {
         labels: ['< 0.99', '>= 0.99'],
         datasets: [
             {
-            data: [{{ statistics.kg_bad_pr }}, 100 - {{ statistics.kg_bad_pr }}],
+            data: [{{ statistics.all.kg_bad_per|floatformat:2 }}, 100 - {{ statistics.all.kg_bad_per|floatformat:2 }}],
             backgroundColor: ['red','green'],
             },],
     },

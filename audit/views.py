@@ -2344,7 +2344,7 @@ month="%s"' %
     return render(request, 'audit/tickets_bad_fill_mass.html', context)
 
 
-def gen_distr_duration(accounts_list, interval=None):
+def calc_distr_duration_no_service(accounts_list, interval=None):
     '''Распределение простоев сервиса
     всё что больше последнего элемента не учитывается
     '''
@@ -2364,12 +2364,179 @@ def gen_distr_duration(accounts_list, interval=None):
                     account.get('duration') <= interval[i+1]):
                 durations[interval[i+1]] += 1
                 break
-    # {1: count1, 2: count2, ...}
-    return durations
+    # durations = {1: count1, 2: count2, ...}
+
+    # Рассчитываем вероятность устранение проблемы
+    probability_dur = {}
+
+    count_accounts = len(accounts_list)
+    count_sum = 0
+    for dur, count in sorted(durations.items()):
+        probability_dur[dur] = \
+            (count + count_sum)*100/count_accounts if count_accounts > 0 else 0
+        count_sum += count
+
+    # формируем словарь
+    distribution = [
+        {'time': i,
+         'count': durations[i],
+         'probability': probability_dur[i],
+         } for i in interval[1:]
+    ]
+
+    return distribution
+
+
+def calc_no_service_statistic_duration(durations):
+    '''Рассчитываем статистику по остановкам сервиса по данным
+    из списка продолжительностей остановок сервиса
+    '''
+    from math import sqrt
+    durations.sort()
+
+    # медиана
+    mediana = durations[len(durations)//2] if durations else 0
+    # Среднее арифметическое простоев
+    avg = sum(durations)/len(durations) if durations else 0
+    # Эмпирическая (выборочная) дисперсия
+    disp = 0.0
+    if len(durations) > 1:
+        for time in durations:
+            disp += (time - avg)**2
+        disp = disp/(len(durations)-1)
+    # Среднеквадратичное отклонение
+    dev_sqrt = sqrt(disp)
+    # Коэффицент вариации
+    k_var = dev_sqrt/avg if avg else 0
+
+    statistic = {
+        'mediana': mediana,
+        'avg': avg,
+        'disp': disp,
+        'dev_sqrt': dev_sqrt,
+        'k_var': k_var,
+        'count': len(durations),
+    }
+    return statistic
+
+
+def calc_no_service_statistic(accounts_list):
+    '''Функция расчёта статистических показателей по оставнокам сервиса
+    у клиентов
+    '''
+    # Рассчитываем количество клиентов с низким коэфициентом готовности
+    count_kg_bad = 0
+    for account in accounts_list:
+        if account['kg'] < 0.99:
+            count_kg_bad += 1
+
+    count_kg_bad_per = count_kg_bad*100/len(accounts_list)
+
+    # Считаем статистику по списку остановок сервиса
+    durations = [account['duration'] for account in accounts_list]
+    statistic = calc_no_service_statistic_duration(durations)
+
+    statistic['kg_bad'] = count_kg_bad
+    statistic['kg_bad_per'] = count_kg_bad_per
+
+    return statistic
+
+
+def calc_no_service_statistic_bugs_periods(bug_list, periods):
+    '''Функция расчёта статистических показателей по оставнокам сервиса
+    у клиентов за каждый период в periods
+    '''
+    statistic_periods = []
+    for date_begin, date_end in periods:
+        # Формируем список продолжительности остановок сервиса
+        durations = [
+            bug['duration']
+            for bug in bug_list
+            if (bug['date'].date() >= date_begin and
+                bug['date'].date() < date_end)
+        ]
+        # Считаем статистику
+        statistic = calc_no_service_statistic_duration(durations)
+        statistic['date'] = date_begin
+        statistic_periods.append(statistic)
+    return statistic_periods
+
+
+def summ_hours_and_minutes(hours, minutes):
+    '''Функция сложения часов и минут. Ответ возвращается в часах.
+    '''
+    result = hours if hours else 0.0
+    if minutes:
+        result += minutes/60
+    return result
+
+
+def fetch_bugs_no_service(db, date_begin, date_end):
+    '''Функция формирования списка тикетов за заданое время, в которых
+    зафиксировано пропадание сервиса
+    '''
+    # Запрашиваем список тикетов с ненулевыми остановками сервиса
+    sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.duration_bug_c, \
+t2.duration_min_c
+FROM sugar.bugs t1 LEFT JOIN sugar.bugs_cstm t2 ON t1.id = t2.id_c
+WHERE t1.date_entered BETWEEN '%s' AND '%s'
+AND (t2.duration_bug_c > 0 OR t2.duration_min_c > 0)
+    ''' % (date_begin, date_end)
+    bugs = db.sqlQuery(sql)
+
+    bugs_dicts = [
+        {'id': bug[0],
+         'number': bug[1],
+         'date': bug[2],
+         'duration': summ_hours_and_minutes(bug[3], bug[4]),
+         } for bug in bugs
+    ]
+    return bugs_dicts
+
+
+def fetch_accounts_bugs_no_service(db, bugs, date_begin, date_end):
+    '''Функция получения контрагентов с информацией о времени недоступности
+    сервиса и списке открытых тикетов, привязанных к контрагенту
+    '''
+    accounts = {}
+    for bug in bugs:
+        # Смотрим связанные с тикетом контрагентов
+        sql = '''SELECT t2.name, t2.id, t3.company_acc_c, \
+t2.billing_address_street
+FROM sugar.accounts_bugs t1
+LEFT JOIN sugar.accounts t2 ON t1.account_id = t2.id
+LEFT JOIN sugar.accounts_cstm t3 ON t2.id = t3.id_c
+WHERE t1.bug_id = '%s'
+        ''' % (bug['id'])
+        accounts_bugs = db.sqlQuery(sql)
+
+        for account_bug in accounts_bugs:
+            id_acc = account_bug[1]
+
+            if id_acc in accounts:
+                accounts[id_acc]['duration'] += bug['duration']
+                accounts[id_acc]['bugs'].append(bug)
+            else:
+                # Создаём новую запись в словаре
+                accounts[id_acc] = {
+                    'duration': bug['duration'],
+                    'name': account_bug[0],
+                    'id': id_acc,
+                    'company': account_bug[2],
+                    'address': account_bug[3],
+                    'bugs': [bug],
+                }
+    # Рассчитываем продолжительность отчётного периода в часах
+    delta = (date_end - date_begin).total_seconds()/3600
+    # Рассчитываем коэффициент готовности
+    for id_acc in accounts:
+        accounts[id_acc]['kg'] = 1 - accounts[id_acc]['duration']/delta
+
+    return accounts.values()
 
 
 @login_required
-def top_no_service(request, year='', month='', csv_flag=False, last='week'):
+def top_no_service(request, year='', month='', last='week', csv_flag=False,):
     '''Функция вывода ТОП абонентов с максимальным простоем сервиса
     '''
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -2384,204 +2551,51 @@ month="%s"' %
         (request.user, top_no_service.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
-    try:
-        db = MySqlDB()
-    except:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка коннекта к базе'
-                   }
-        return render(request, 'audit/error.html', context)
+    db = MySqlDB()
 
-    # Запрашиваем список тикетов с ненулевыми остановками сервиса
-    sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.duration_bug_c, \
-t2.duration_min_c
-FROM sugar.bugs t1 LEFT JOIN sugar.bugs_cstm t2 ON t1.id = t2.id_c
-WHERE t1.date_entered BETWEEN '%s' AND '%s'
-AND (t2.duration_bug_c > 0 OR t2.duration_min_c > 0)
-    ''' % (date_begin, date_end)
-    bugs = db.sqlQuery(sql)
+    # Запрашиваем перечень тикетов, в которой были зафиксированы
+    # остановки сервиса
+    bugs = fetch_bugs_no_service(db, date_begin, date_end)
 
-    accounts = {}
-    for bug in bugs:
-        # Смотрим связанные с тикетом контрагентов
-        sql = '''SELECT t2.name, t2.id, t3.company_acc_c, \
-t2.billing_address_street
-FROM sugar.accounts_bugs t1
-LEFT JOIN sugar.accounts t2 ON t1.account_id = t2.id
-LEFT JOIN sugar.accounts_cstm t3 ON t2.id = t3.id_c
-WHERE t1.bug_id = '%s'
-        ''' % (bug[0])
-        accounts_bugs = db.sqlQuery(sql)
-        if len(accounts_bugs) == 0:
-            continue
-        for account_bug in accounts_bugs:
-            id_acc = account_bug[1]
+    # Запрашиваем перечень контрагентов, связанных с тикетами bugs
+    accounts = fetch_accounts_bugs_no_service(db, bugs, date_begin, date_end)
 
-            # Рассчитываем время простоев
-            duration = 0.0
-            if bug[3]:
-                duration += bug[3]
-            if bug[4]:
-                duration += bug[4]/60
-            if id_acc in accounts:
-                accounts[id_acc]['duration'] += duration
-                accounts[id_acc]['bugs'].append({'id': bug[0],
-                                                 'number': bug[1],
-                                                 'duration': duration})
-            else:
-                accounts[id_acc] = {'duration': duration,
-                                    'name': account_bug[0],
-                                    'id': id_acc,
-                                    'company': account_bug[2],
-                                    'address': account_bug[3],
-                                    'bugs': [{'id': bug[0],
-                                              'number': bug[1],
-                                              'duration': duration}],
-                                    }
-    # Рассчитываем продолжительность отчётного периода в часах
-    delta = (date_end - date_begin).total_seconds()/3600
+    # Сортируем полученные данные и отделяем мух от котел (физиков от юриков)
+    def acc_sort(x): return x['duration']
+    accounts_company_list = [
+        account
+        for account in sorted(accounts, key=acc_sort, reverse=True)
+        if account.get('company') == 1
+    ]
+    accounts_man_list = [
+        account
+        for account in sorted(accounts, key=acc_sort, reverse=True)
+        if account.get('company') == 0
+    ]
 
-    # Сортируем полученные данные
-    accounts_company_list = []
-    accounts_man_list = []
-
-    kg_man_bad_count = 0
-    kg_company_bad_count = 0
-
-    def acc_sort(x): return x[1]['duration']
-    for account in sorted(accounts.items(), key=acc_sort, reverse=True):
-        # Расчитываем коэффициент готовности
-        kg = 1 - account[1]['duration']/delta
-        if account[1].get('company') == 1:
-            # Считаем количество абонентов с плохим коэффициентом готовности
-            if kg < 0.99:
-                kg_company_bad_count += 1
-            accounts_company_list.append({'duration': account[1]['duration'],
-                                          'name': account[1]['name'],
-                                          'address': account[1]['address'],
-                                          'id': account[1]['id'],
-                                          'bugs': account[1]['bugs'],
-                                          'kg': kg,
-                                          })
-        else:
-            # Считаем количество абонентов с плохим коэффициентом готовности
-            if kg < 0.99:
-                kg_man_bad_count += 1
-            accounts_man_list.append({'duration': account[1]['duration'],
-                                      'name': account[1]['name'],
-                                      'address': account[1]['address'],
-                                      'id': account[1]['id'],
-                                      'bugs': account[1]['bugs'],
-                                      'kg': kg,
-                                      })
     # Формируем статистику распределения простоев
-    durations_company = gen_distr_duration(accounts_company_list)
-    durations_man = gen_distr_duration(accounts_man_list)
+    durations_company = calc_distr_duration_no_service(accounts_company_list)
+    durations_man = calc_distr_duration_no_service(accounts_man_list)
 
-    # Рассчитываем вероятность устранение проблемы за то или иное время
-    probability_dur_comp = {}
-    probability_dur_man = {}
+    # Рассчитываем статистику по всем клиентам
+    statistic_all = calc_no_service_statistic(accounts)
+    statistic_man = calc_no_service_statistic(accounts_man_list)
+    statistic_company = calc_no_service_statistic(accounts_company_list)
 
-    count_company = len(accounts_company_list)
-    count_sum = 0
-    for dur, count in sorted(durations_company.items()):
-        probability_dur_comp[dur] = (count + count_sum)*100/count_company
-        count_sum += count
+    statistics = {
+        'all': statistic_all,
+        'man': statistic_man,
+        'company': statistic_company,
+    }
 
-    count_man = len(accounts_man_list)
-    count_sum = 0
-    for dur, count in sorted(durations_man.items()):
-        probability_dur_man[dur] = (count + count_sum)*100/count_man
-        count_sum += count
+    # Формируем периоды
+    periods = gen_report_periods(date_begin, date_end)
 
-    # for count in sorted(probability_dur_comp.items()):
-    #     messages.info(request, count)
-
-    # Рассчитываем количество клиентов с низким коэфициентом готовности
-    kg_bad_count = kg_man_bad_count + kg_company_bad_count
-    kg_bad_count_pr = kg_bad_count*100/(len(accounts_man_list) +
-                                        len(accounts_company_list))
-
-    def sort_duration(x): return x.get('duration')
-
-    # Надо понимать, что в statistics и statistics_period разные медианы.
-    # В первом случае медиана по остановкам у клиентов,
-    # во втором - по тикетам!
-    mediana = sorted(accounts.values(),
-                     key=sort_duration)[len(accounts)//2].get('duration')
-
-    statistics = {'kg_man_bad': kg_man_bad_count,
-                  'kg_man_bad_pr': kg_man_bad_count*100/len(accounts_man_list),
-                  'kg_company_bad': kg_company_bad_count,
-                  'kg_company_bad_pr':
-                      kg_company_bad_count*100/len(accounts_company_list),
-                  'kg_bad': kg_bad_count,
-                  'kg_bad_pr': kg_bad_count_pr,
-                  'mediana': mediana,
-                  }
-
-    statistics_period = []
-    if (date_end - date_begin) > timedelta(days=180):
-        # Формируем период
-        period = []
-        date_cur = date_begin
-        if date_cur.day > 1:
-            date_cur = next_month(date_cur)
-        while date_cur < date_end:
-            period.append(date_cur)
-            date_cur = next_month(date_cur)
-        period.append(date_cur)
-
-        # Считаем статистические данные
-        for i in range(len(period[0:-1])):
-            date_cur = period[i]
-            date_next = period[i+1]
-            dur = []
-            for bug in bugs:
-                if (bug[2].date() >= date_cur and bug[2].date() < date_next):
-                    # Рассчитываем время простоев
-                    duration = 0.0
-                    if bug[3]:
-                        duration += bug[3]
-                    if bug[4]:
-                        duration += bug[4]/60
-                    dur.append(duration)
-            mediana = 0.0
-            dur_avg = 0.0
-            dev_sqrt = 0.0
-            k_var = 0.0
-            if len(dur) > 0:
-                from math import sqrt
-                mediana = sorted(dur)[len(dur)//2]
-                dur_avg = sum(dur)/len(dur)
-                # Расчёт эмпирической (выборочной) дисперсии disp
-                # Среднеквадратичное отклонение dev_sqrt
-                # Коэфициент вариации k_var
-                disp = 0.0
-                for time in dur:
-                    disp += (time - dur_avg)**2
-                disp = disp/(len(dur)-1)
-                dev_sqrt = sqrt(disp)
-                k_var = dev_sqrt/dur_avg
-
-            statistics_period.append({'date': date_cur,
-                                      'mediana': mediana,
-                                      'count': len(dur),
-                                      'avg': dur_avg,
-                                      'dev_sqrt': dev_sqrt,
-                                      'k_var': k_var,
-                                      })
-
-    # for stat in statistics_period:
-    #     messages.info(request, stat)
+    # Считаем статистику по тикетам!!! не по контрагентам!!!
+    statistics_periods = calc_no_service_statistic_bugs_periods(bugs, periods)
 
     if csv_flag:
         import csv
@@ -2615,28 +2629,25 @@ WHERE t1.bug_id = '%s'
                              round(account.get('duration'), 2),
                              account.get('kg')])
         return response
-    else:
-        months_report = gen_last_months(last=12)
-        years_report = gen_last_years(3)
-        type_report = gen_type_report(year=year, month=month)
+    # Формируем html
+    months_report = gen_last_months(last=12)
+    years_report = gen_last_years(3)
+    type_report = gen_type_report(year=year, month=month)
 
-        context = {'accounts_company': accounts_company_list,
-                   'accounts_man': accounts_man_list,
-                   'durations_company': sorted(durations_company.items()),
-                   'durations_man': sorted(durations_man.items()),
-                   'statistics': statistics,
-                   'statistics_period': statistics_period,
-                   'probability_dur_comp':
-                       sorted(probability_dur_comp.items()),
-                   'probability_dur_man': sorted(probability_dur_man.items()),
-                   'date_begin': date_begin,
-                   'date_end': date_end,
-                   'months': months_report,
-                   'years': years_report,
-                   'type': type_report,
-                   'menu_url': '/audit/tickets/top_no_service/',
-                   }
-        return render(request, 'audit/top_no_service.html', context)
+    context = {'accounts_company': accounts_company_list,
+               'accounts_man': accounts_man_list,
+               'durations_company': durations_company,
+               'durations_man': durations_man,
+               'statistics': statistics,
+               'statistics_periods': statistics_periods,
+               'date_begin': date_begin,
+               'date_end': date_end,
+               'months': months_report,
+               'years': years_report,
+               'type': type_report,
+               'menu_url': '/audit/tickets/top_no_service/',
+               }
+    return render(request, 'audit/top_no_service.html', context)
 
 
 @login_required
