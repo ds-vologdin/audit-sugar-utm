@@ -373,7 +373,7 @@ AND t1.out_balance > -15000 and t1.out_balance < 15000
 
 
 @login_required
-def utmpays_statistic(request, year='', month='', csv_flag=False, last='year'):
+def utmpays_statistic(request, year='', month='', last='year', csv_flag=False):
     '''Функция формирует отчёт по платежам физ. лиц
     '''
     if not request.user.groups.filter(name__exact='utmpays').exists():
@@ -1341,7 +1341,7 @@ def fetch_tickets_open_stat(dbCrm, date_begin, date_end):
     return tickets_open_stat
 
 
-def tickets_open(request, year='', month='', csv_flag=False, last='month'):
+def tickets_open(request, year='', month='', last='month', csv_flag=False):
     '''Вывод статистики по открытым тикетам
     '''
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -1470,7 +1470,7 @@ AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
 
 
 @login_required
-def tickets_bad_fill(request, year='', month='', csv_flag=False, last='month'):
+def tickets_bad_fill(request, year='', month='', last='month', csv_flag=False):
     '''Вывод списка неверно оформленных тикетов
     '''
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -1915,7 +1915,7 @@ def gen_repairs_stat_periods(repairs_list, periods):
 
 
 @login_required
-def repairs_stat(request, year='', month='', csv_flag=False, last='month'):
+def repairs_stat(request, year='', month='', last='month', csv_flag=False):
     '''Функция формирования статистики по выполненным ремонтам
     year - стастика за конкретный год
     month - статистика за конкретный месяц
@@ -3015,8 +3015,8 @@ def gen_connections_period(connections, period):
 
 
 @login_required
-def connections_report(request, year='', month='', csv_flag=False,
-                       last='week'):
+def connections_report(request, year='', month='', last='week',
+                       csv_flag=False,):
     '''Функция генерации отчёта по плану работ
     '''
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -3255,7 +3255,7 @@ def gen_support_period(events, period):
 
 
 @login_required
-def support_report(request, year='', month='', csv_flag=False, last='week'):
+def support_report(request, year='', month='', last='week', csv_flag=False):
     '''Функция генерации отчёта по работе callcenter техподдержки
     '''
     from .models import QueueLog, TpNoAnswered
@@ -3374,7 +3374,7 @@ def is_bad_feedback(question):
 
 
 @login_required
-def acc_question_stat(request, year='', month='', csv_flag=False, last='week'):
+def acc_question_stat(request, year='', month='', last='week', csv_flag=False):
     '''Функция генерации отчёта по работе callcenter техподдержки
     '''
     # Проверяем права пользователя
