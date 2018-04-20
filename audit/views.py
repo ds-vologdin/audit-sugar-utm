@@ -2994,22 +2994,21 @@ def gen_stat_connections(connections_dict, date_begin=None, date_end=None):
     return statistics
 
 
-def gen_connections_period(connections, period):
+def calc_statistic_connections_periods(connections, periods):
     '''Рассчитываем количества работ в каждом периоде
     '''
     stat_period = []
     # Пробегаем по каждому отрезку периода
-    for i in range(len(period[0:-1])):
-        date_cur = period[i]
-        date_next = period[i+1]
-        count = 0
-        # Смотрим все работы и ищем попадающие в нужный отрезок времени
-        # считаем сколько таких
-        for conn in connections:
-            if (conn.get('date') >= date_cur and
-                    conn.get('date') < date_next):
-                count += 1
-        stat_period.append({'date': date_cur, 'count': count})
+    for date_begin, date_end in periods:
+        connections_period = [
+            connection
+            for connection in connections
+            if (connection['date'] >= date_begin and
+                connection['date'] < date_end)
+        ]
+        count = len(connections_period)
+        stat_period.append({'date': date_begin, 'count': count})
+
     # [{'date': date, 'count': count},]
     return stat_period
 
@@ -3093,10 +3092,12 @@ month="%s"' %
     statistics = gen_stat_connections(connections_active)
 
     # Формируем отчётные периоды (список дат)
-    period = gen_period(date_begin, date_end)
+    periods = gen_report_periods(date_begin, date_end)
 
     # Расчитываем статистику подневную/понедельную/помесячную
-    statistics_period = gen_connections_period(connections_active, period)
+    statistics_period = calc_statistic_connections_periods(
+        connections_active, periods
+    )
 
     # Считаем статистику подневную/понедельную/помесячную по менеджерам
     # Скважность задана в списке period
@@ -3106,11 +3107,14 @@ month="%s"' %
     for k, g in groupby(sorted(connections_active, key=sort_create_by),
                         sort_create_by):
         connections_man = list(g)
-        stat_period = gen_connections_period(connections=connections_man,
-                                             period=period)
-        statistics_manager_period.append({'man': k,
-                                          'count': len(connections_man),
-                                          'stat': stat_period})
+        stat_period = calc_statistic_connections_periods(
+            connections_man, periods
+        )
+        statistics_manager_period.append(
+            {'man': k,
+             'count': len(connections_man),
+             'stat': stat_period}
+        )
 
     # Формируем статистику по типу работ
     # [{'type': type, 'count': count, 'stat': {'date': date, 'count': count}},]
@@ -3120,11 +3124,14 @@ month="%s"' %
     def sort_type(x): return x.get('type')
     for k, g in groupby(sorted(connections_active, key=sort_type), sort_type):
         connections_type = list(g)
-        stat_period = gen_connections_period(connections=connections_type,
-                                             period=period)
-        statistics_type_period.append({'type': k,
-                                       'count': len(connections_type),
-                                       'stat': stat_period})
+        stat_period = calc_statistic_connections_periods(
+            connections_type, periods
+        )
+        statistics_type_period.append(
+            {'type': k,
+             'count': len(connections_type),
+             'stat': stat_period}
+        )
 
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
