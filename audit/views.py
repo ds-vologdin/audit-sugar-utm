@@ -152,6 +152,23 @@ def next_month(date_val):
         return date(year=date_val.year+1, month=1, day=1)
 
 
+def gen_week_period(date_begin, date_end):
+    '''Устарела, используется только в gen_period
+    Как только gen_period удалю, надо не забыть удалить и её
+    '''
+    # Считаем статистику кратно 7 дням от конца периода
+    # Смещаемся на начало текущей недели
+    from calendar import weekday
+
+    delta = date_end - date_begin
+    delta_week = timedelta(days=weekday(date_end.year,
+                                        date_end.month, date_end.day))
+    begin_period = date_end - delta_week - timedelta(days=(delta.days//7)*7)
+    period = [begin_period + timedelta(days=i)
+              for i in range(0, delta.days+7, 7)]
+    return period
+
+
 def gen_period(date_begin, date_end):
     '''
     TODO: УСТАРЕЛА! Надо везде заменить на gen_report_periods !!!!!!!!!!!!!!!!
@@ -2995,20 +3012,6 @@ def gen_connections_period(connections, period):
         stat_period.append({'date': date_cur, 'count': count})
     # [{'date': date, 'count': count},]
     return stat_period
-
-
-def gen_week_period(date_begin, date_end):
-    # Считаем статистику кратно 7 дням от конца периода
-    # Смещаемся на начало текущей недели
-    from calendar import weekday
-
-    delta = date_end - date_begin
-    delta_week = timedelta(days=weekday(date_end.year,
-                                        date_end.month, date_end.day))
-    begin_period = date_end - delta_week - timedelta(days=(delta.days//7)*7)
-    period = [begin_period + timedelta(days=i)
-              for i in range(0, delta.days+7, 7)]
-    return period
 
 
 @login_required
