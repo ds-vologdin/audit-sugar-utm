@@ -2654,7 +2654,7 @@ def fetch_tickets_mass(date_begin, date_end):
     '''Функция получения списка массовых тикетов
     '''
     from audit.crmdict import bug_localisation_list, bug_perform_list
-    
+
     db = MySqlDB()
 
     sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.address_bugs_c,
@@ -2838,28 +2838,10 @@ def gen_stat_survey(surveys, date_begin=None, date_end=None):
     return statistics
 
 
-@login_required
-def survey_report(request, year='', month='', csv_flag=False, last='week'):
-    '''Генерация списка заявок на осмотры
+def fetch_survey(date_begin, date_end):
+    '''Получить список (словарь) осмотров
     '''
-    from itertools import groupby
     from audit.crmdict import status_survey, status_rs, status_ess
-
-    if not request.user.groups.filter(name__exact='tickets').exists():
-        context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
-                   }
-        return render(request, 'audit/error.html', context)
-
-    logger.info(
-        'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-        (request.user, survey_report.__name__, last, year, month)
-    )
-
-    # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
-
     db = MySqlDB()
 
     # Запрос перечня осмотров за заданный период
@@ -2876,73 +2858,141 @@ ORDER BY manager, t1.date_entered;
 
     surveys = db.sqlQuery(sql)
 
-    surveys_dict = [{'id': survey[0],
-                     'name': survey[4],
-                     'date_entered': survey[6],
-                     'address': survey[5],
-                     'description': survey[7],
-                     'manager': survey[13],
-                     'resolution': survey[9],
-                     'tu': survey[8],
-                     'status': status_survey.get(survey[1]),
-                     'status_key': survey[1],
-                     'status_rs': status_rs.get(survey[2]),
-                     'status_rs_key': survey[2],
-                     'status_ess': status_ess.get(survey[3]),
-                     'status_ess_key': survey[3],
-                     'comment_rs': survey[11],
-                     'comment_ess': survey[10],
-                     } for survey in surveys]
+    surveys_dict = [
+        {'id': survey[0],
+         'name': survey[4],
+         'date_entered': survey[6],
+         'address': survey[5],
+         'description': survey[7],
+         'manager': survey[13],
+         'resolution': survey[9],
+         'tu': survey[8],
+         'status': status_survey.get(survey[1], survey[1]),
+         'status_key': survey[1],
+         'status_rs': status_rs.get(survey[2], survey[2]),
+         'status_rs_key': survey[2],
+         'status_ess': status_ess.get(survey[3], survey[3]),
+         'status_ess_key': survey[3],
+         'comment_rs': survey[11],
+         'comment_ess': survey[10],
+         } for survey in surveys
+    ]
+    return surveys_dict
 
-    # Формируем статистику по осмотрам
-    statistics = {'all': gen_stat_survey(surveys_dict)}
+
+def calc_surveys_statistic(surveys):
+    from audit.crmdict import status_survey, status_rs, status_ess
+    # Инициализация словарей
+    statistics = {'count': len(surveys)}
+
+    status_stat = {
+        st: {'count': 0, 'name': status_survey[st]}
+        for st in status_survey
+    }
+    status_rs_stat = {
+        st: {'count': 0, 'name': status_rs[st]}
+        for st in status_rs
+    }
+    status_ess_stat = {
+        st: {'count': 0, 'name': status_ess[st]}
+        for st in status_ess
+    }
+
+    # Обходим все записи и формируем статистику
+    for survey in surveys:
+        status_stat[survey.get('status_key')]['count'] += 1
+        if survey.get('status_key') == status_survey.get('accept'):
+            status_rs_stat[survey.get('status_rs_key')]['count'] += 1
+            status_ess_stat[survey.get('status_ess_key')]['count'] += 1
+
+    statistics['status'] = status_stat
+    statistics['status_rs'] = status_rs_stat
+    statistics['status_ess'] = status_ess_stat
+
+    return statistics
+
+
+def calc_survey_statistics_periods(surveys_dict, periods):
+    '''Расчитываем статистику по осмотрам
+    '''
+    from itertools import groupby
+
+    statistics = {'all': calc_surveys_statistic(surveys_dict)}
 
     # Группируем осмотры по менеджерам
     def sort_manager(x): return x.get('manager')
-
     for k, g in groupby(surveys_dict, sort_manager):
-        statistics[k] = gen_stat_survey(list(g))
+        statistics[k] = calc_surveys_statistic(list(g))
 
     # Считаем статистику по отчётным периодам
-    statistic_period = []
-    statistic_manager_period = []
+    statistics_periods = {}
+
+    # Формируем общую статистику по каждому интересующему нас периоду
+    statistics_all_managers_periods = []
+    for date_begin, date_end in periods:
+        # Формируем срез осмоторов, попадающий под текущий период
+        surveys_period = [
+            survey
+            for survey in surveys_dict
+            if (survey['date_entered'].date() >= date_begin and
+                survey['date_entered'].date() < date_end)
+        ]
+        statistics_all_managers_periods.append(
+            {'date': date_begin,
+             'stat': calc_surveys_statistic(surveys_period)}
+        )
+
+    statistics_periods = {'all': statistics_all_managers_periods}
+
+    # Считаем статистику открытых осмотров по каждому менеджеру
+    for manager, g in groupby(surveys_dict, sort_manager):
+        surveys_manager = list(g)
+        statistics_manager_periods = []
+        for date_begin, date_end in periods:
+            # Формируем срез осмоторов менеджера, попадающий под текущий период
+            surveys_period = [
+                survey
+                for survey in surveys_manager
+                if (survey['date_entered'].date() >= date_begin and
+                    survey['date_entered'].date() < date_end)
+            ]
+            statistics_manager_periods.append(
+                {'date': date_begin,
+                 'stat': calc_surveys_statistic(surveys_period)}
+            )
+        statistics_periods[manager] = statistics_manager_periods
+
+    return {'total': statistics,
+            'total_periods': statistics_periods}
+
+
+@login_required
+def survey_report(request, year='', month='', last='week', csv_flag=False):
+    '''Генерация списка заявок на осмотры
+    '''
+    if not request.user.groups.filter(name__exact='tickets').exists():
+        context = {'user': request.user.username,
+                   'error': 'Не хватает прав!'
+                   }
+        return render(request, 'audit/error.html', context)
+
+    logger.info(
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' %
+        (request.user, survey_report.__name__, last, year, month)
+    )
+
+    # Формируем даты начала и конца периода
+    date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     # Формируем отчётные периоды (список дат)
-    period = gen_period(date_begin, date_end)
+    periods = gen_report_periods(date_begin, date_end)
 
-    # Формируем статистику по каждому интересующему нас периоду
-    for i in range(len(period[:-1])):
-        dt = period[i]
-        dt_next = period[i+1]
-        statistic_period.append(gen_stat_survey(surveys=surveys_dict,
-                                                date_begin=dt,
-                                                date_end=dt_next))
-    # Считаем статистику открытых осмотров по каждому менеджеру
-    for k, g in groupby(surveys_dict, sort_manager):
-        surveys_tmp = list(g)
-        count_period = {}
+    # Получаем осмотры
+    surveys_dict = fetch_survey(date_begin, date_end)
 
-        for dt in period[:-1]:
-            count_period[dt] = 0
-
-        for survey in surveys_tmp:
-            # Смотрим каждый осмотр конкретного менеджера k
-            date_survey = survey.get('date_entered').date()
-            # for dt in period:
-            for i in range(len(period[:-1])):
-                dt = period[i]
-                dt_next = period[i+1]
-                if (date_survey >= dt and date_survey < dt_next):
-                    count_period[dt] += 1
-                    break
-        count_period_list = [{'date': dt, 'count': count_period[dt]}
-                             for dt in period[:-1]]
-        statistic_manager_period.append({'manager': k,
-                                         'count_period': count_period_list,
-                                         })
-
-    # for st in statistic_manager_period:
-    #     messages.info(request, st)
+    # Формируем статистику по осмотрам
+    statistics = calc_survey_statistics_periods(surveys_dict, periods)
 
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
@@ -2950,8 +3000,6 @@ ORDER BY manager, t1.date_entered;
 
     context = {'surveys': surveys_dict,
                'statistics': statistics,
-               'statistic_period': statistic_period,
-               'statistic_manager_period': statistic_manager_period,
                'date_begin': date_begin,
                'date_end': date_end,
                'months': months_report,

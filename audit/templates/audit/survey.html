@@ -13,7 +13,7 @@
         {% if surveys %}
             <p>Найдено {{ surveys|length }} осмотра.</p>
             <h2>Данные за период с {{ date_begin|date:'Y-m-d' }} по {{ date_end|date:'Y-m-d' }}</h2>
-            {% if statistic_period|length > 0 %}
+
             <div class="row">
                 <h2>Помесячная статистика созданных осмотров</h2>
                 <canvas id="stat_period" width="400" height="100"></canvas>
@@ -22,7 +22,7 @@
                 <h2>Помесячная статистика созданных осмотров (по создателям)</h2>
                 <canvas id="stat_manager_period" width="400" height="100"></canvas>
             </div>
-            {% endif %}
+
             <div class="row">
                 <div class="col-xs-6">
                     <h2 class="text-center">Создали заявки на осмотры</h2>
@@ -111,7 +111,7 @@ function getRandomColor() {
   return color;
 }
 
-var color_manager = [{% for stat in statistics %} getRandomColor(), {% endfor %}];
+var color_manager = [{% for stat in statistics.total %} getRandomColor(), {% endfor %}];
 
 var ctx_stat_manager = document.getElementById("stat_manager");
 var stat_manager = new Chart(ctx_stat_manager, {
@@ -119,10 +119,10 @@ var stat_manager = new Chart(ctx_stat_manager, {
     type: 'pie',
     // The data for our dataset
     data: {
-        labels: [{% for stat in statistics.keys %} {% if not stat == 'all' %} '{{ stat }}', {% endif %} {% endfor %}],
+        labels: [{% for stat in statistics.total.keys %} {% if not stat == 'all' %} '{{ stat }}', {% endif %} {% endfor %}],
         datasets: [{
             label: "Заявки на осмотры",
-            data: [{% for stat in statistics.items %}{% if not stat.0 == 'all' %}{{ stat.1.count }},{% endif %}{% endfor %}],
+            data: [{% for stat in statistics.total.items %}{% if not stat.0 == 'all' %}{{ stat.1.count }},{% endif %}{% endfor %}],
             backgroundColor: color_manager,
             },
         ],
@@ -136,70 +136,72 @@ var stat_status = new Chart(ctx_stat_status, {
     // The data for our dataset
     data: {
         //labels: status,
-        labels: [{% for stat in statistics.all.status.items %}'{{ stat.0 }}', {% endfor %}],
+        labels: [{% for stat in statistics.total.all.status.items %}'{{ stat.1.name }}', {% endfor %}],
         datasets: [{
             label: "Заявки на осмотры",
-            data: [{% for stat in statistics.all.status.items %}{{ stat.1 }},{% endfor %}],
+            data: [{% for stat in statistics.total.all.status.items %}{{ stat.1.count }},{% endfor %}],
             backgroundColor: ['#DC143C', '#90EE90', '#6495ED', '#483D8B'],
             },
         ],
     },
 });
-{% if statistic_period|length > 0 %}
+
+var labels_date = [{% for stat in statistics.total_periods.all %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}];
+
 var ctx_stat_period = document.getElementById("stat_period");
 var stat_period = new Chart(ctx_stat_period, {
 // The type of chart we want to create
     type: 'line',
     // The data for our dataset
     data: {
-        labels: [{% for stat in statistic_period %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
+        labels: labels_date,
         datasets: [{
             label: "Создано осмотров",
             backgroundColor: 'transparent',
             borderColor: 'blue',
-            data: [{% for stat in statistic_period %} {{ stat.count }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.count }}, {% endfor %}],
             },
             {
             label: "Есть тех. возможность",
             backgroundColor: 'transparent',
             borderColor: 'red',
-            data: [{% for stat in statistic_period %} {{ stat.status.accept }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status.accept.count }}, {% endfor %}],
             },
             {
             label: "Нет тех. возможности",
             backgroundColor: 'transparent',
             borderColor: 'green',
-            data: [{% for stat in statistic_period %} {{ stat.status.deny }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status.deny.count }}, {% endfor %}],
             },
             {
             label: "В развитие сети",
             backgroundColor: 'transparent',
             borderColor: 'SlateBlue',
-            data: [{% for stat in statistic_period %} {{ stat.status.build }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status.build.count }}, {% endfor %}],
             },
             {
             label: "Отказов РС",
             backgroundColor: 'transparent',
             borderColor: 'Orange',
-            data: [{% for stat in statistic_period %} {{ stat.status_rs.deny }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status_rs.deny.count }}, {% endfor %}],
             },
             {
             label: "Отложено РС",
             backgroundColor: 'transparent',
             borderColor: 'Brown',
-            data: [{% for stat in statistic_period %} {{ stat.status_rs.pending }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status_rs.pending.count }}, {% endfor %}],
             },
             {
             label: "Отказов ЭСС",
             backgroundColor: 'transparent',
             borderColor: 'GreenYellow',
-            data: [{% for stat in statistic_period %} {{ stat.status_ess.deny }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status_ess.deny.count }}, {% endfor %}],
             },
             {
             label: "Отложено ЭСС",
             backgroundColor: 'transparent',
             borderColor: 'Maroon',
-            data: [{% for stat in statistic_period %} {{ stat.status_ess.defer }}, {% endfor %}],
+            data: [{% for stat in statistics.total_periods.all %} {{ stat.stat.status_ess.defer.count }}, {% endfor %}],
             },
         ],
     },
@@ -217,21 +219,25 @@ var stat_period = new Chart(ctx_stat_period, {
         }
     }
 });
-{% endif %}
+
 var ctx_stat_manager_period = document.getElementById("stat_manager_period");
 var stat_manager_period  = new Chart(ctx_stat_manager_period, {
 // The type of chart we want to create
     type: 'line',
     // The data for our dataset
     data: {
-        labels: [{% for stat in statistic_period %}'{{ stat.date|date:'Y-m-d' }}', {% endfor %}],
+        labels: labels_date,
         datasets: [
-        {% for stat in statistic_manager_period %}
+        {% for stat in statistics.total_periods.items %}
             {
-            label: "{{ stat.manager }}",
+            {% if stat.0 == 'all'%}
+                label: "Все менеджеры",
+            {% else %}
+                label: "{{ stat.0 }}",
+            {% endif %}
             backgroundColor: 'transparent',
             borderColor: getRandomColor(),
-            data: [{% for item in stat.count_period|dictsort:'date' %} {{ item.count }}, {% endfor %}],
+            data: [{% for item in stat.1|dictsort:'date' %} {{ item.stat.count }}, {% endfor %}],
             },
         {% endfor %}
         ],
