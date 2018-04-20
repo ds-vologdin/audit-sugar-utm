@@ -765,7 +765,7 @@ def block_users_month(request, year='2017', month='01', ods_flag=False):
         (request.user, block_users_month.__name__, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_start, date_stop = gen_report_begin_end_date(year, month)
 
     # Получаем список пользователей с блокировкой
@@ -1468,7 +1468,7 @@ month="%s"' %
         (request.user, tickets_bad_fill.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     tickets = fetch_tickets_bad_fill(date_begin, date_end)
@@ -1749,7 +1749,7 @@ month="%s"' %
         (request.user, repairs_dublicate.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     # Ищем в базе ремонты
@@ -2019,7 +2019,7 @@ month="%s"' %
         (request.user, top_tickets.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     sql = '''SELECT t4.name, t4.billing_address_street, t3.account_id, \
@@ -2325,7 +2325,7 @@ def tickets_bad_fill_mass(request, year='', month='', last='week',
                    }
         return render(request, 'audit/error.html', context)
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     logger.info(
@@ -2468,7 +2468,7 @@ def summ_hours_and_minutes(hours, minutes):
     result = hours if hours else 0.0
     if minutes:
         result += minutes/60
-    return result
+    return round(result, 2)
 
 
 def fetch_bugs_no_service(db, date_begin, date_end):
@@ -2650,32 +2650,11 @@ month="%s"' %
     return render(request, 'audit/top_no_service.html', context)
 
 
-@login_required
-def tickets_mass(request, year='', month='', csv_flag=False, last='week'):
-    '''Генерация списка массовых тикетов
+def fetch_tickets_mass(date_begin, date_end):
+    '''Функция получения списка массовых тикетов
     '''
     from audit.crmdict import bug_localisation_list, bug_perform_list
-
-    if not request.user.groups.filter(name__exact='tickets').exists():
-        context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
-                   }
-        return render(request, 'audit/error.html', context)
-
-    logger.info(
-        'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-        (request.user, tickets_mass.__name__, last, year, month)
-    )
-
-    # Формируем даты начала и конеца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
-
+    
     db = MySqlDB()
 
     sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.address_bugs_c,
@@ -2695,75 +2674,85 @@ GROUP BY t1.bug_number
     bugs_mass = []
     for bug in bugs:
         # Ищем тикеты, у которых есть несколько связей с контрагентами
-        if bug[11] > 1:
-            duration = 0.0
-            try:
-                if bug[7]:
-                    duration += bug[7]
-                if bug[8]:
-                    duration += bug[8]/60
-            except:
-                duration = -1
-                messages.error(request, 'Ошибка в расчётах времени простоя \
-сервиса (%s ч. %s мин.)' % (bug[7], bug[8]))
+        if bug[11] < 2:
+            # Тикет не массовый, переходим к следующему
+            continue
+        # Считаем продолжительность отсутсвия сервиса
+        duration = summ_hours_and_minutes(bug[7], bug[8])
 
-            # Формируем список связанных с тикетом контрагентов
-            accounts_list = [account.split('^')
-                             for account in bug[12].split(';')]
+        # Формируем список связанных с тикетом контрагентов
+        accounts_list = [
+            account.split('^')
+            for account in bug[12].split(';')
+        ]
 
-            if bug[11] > len(accounts_list):
-                # надо делать запрос, что б все учётки узнать
-                # messages.error(request,
-                #                'не все котнрагенты вошлись: (%d - %s)' %
-                #                (bug[11], accounts_list))
-                sql = '''SELECT t1.id, t1.name
+        if bug[11] > len(accounts_list) or len(bug[12]) > 500:
+            # Из-за ограничения GROUP_CONCAT (1024 символа)
+            # реально строка получается меньше ловил 626 символов
+            # (видимо из-за кирилицы)
+            # можем потерять часть контрагентов
+            # делаем запрос, что б узнать все связанные учётки
+
+            sql = '''SELECT t1.id, t1.name
 FROM sugar.accounts t1
 LEFT JOIN sugar.accounts_bugs t2 ON t1.id = t2.account_id
 WHERE bug_id = '%s'
-                ''' % bug[0]
-                accounts_list = db.sqlQuery(sql)
+            ''' % bug[0]
+            accounts_list = db.sqlQuery(sql)
 
-            # Формируем словарь, так удобнее из шаблона
-            try:
-                accounts_dicts = [{'id': account[0], 'name': account[1]}
-                                  for account in accounts_list]
-            except:
-                # Все беды из-за того, что GROUP_CONCAT обрезает строки
-                messages.error(request,
-                               'Не все котнрагенты вошлись (проблема \
-GROUP_CONCAT): (%d - %s)' % (bug[11], accounts_list))
-                sql = '''SELECT t1.id, t1.name
-FROM sugar.accounts t1
-LEFT JOIN sugar.accounts_bugs t2 ON t1.id = t2.account_id
-WHERE bug_id = '%s'
-                ''' % bug[0]
-                accounts_list = db.sqlQuery(sql)
-                accounts_dicts = [{'id': account[0], 'name': account[1]}
-                                  for account in accounts_list]
+        # Формируем словарь, так удобнее для работы в шаблоне
+        accounts_dicts = [
+            {'id': account[0], 'name': account[1]}
+            for account in accounts_list
+        ]
 
-            perform = []
-            if bug[9]:
-                perform = [bug_perform_list[perform]
-                           for perform in bug[9].split(',')]
-            localisation = []
-            if bug[10]:
-                localisation = [bug_localisation_list[loc]
-                                for loc in bug[10].split(',')]
+        perform = [
+            bug_perform_list.get(perform, perform)
+            for perform in bug[9].split(',')
+        ] if bug[9] else []
 
-            bugs_mass.append({'id': bug[0],
-                              'number': bug[1],
-                              'date': bug[2],
-                              'address': bug[3],
-                              'name': bug[4],
-                              'description': bug[5],
-                              'status': bug[6],
-                              'duration': duration,
-                              'perform': perform,
-                              'localisation': localisation,
-                              'accounts': accounts_dicts,
-                              'reason_close': bug[13],
-                              })
-    # messages.info(request, '%s' % bugs_mass)
+        localisation = [
+            bug_localisation_list.get(loc, loc)
+            for loc in bug[10].split(',')
+        ] if bug[10] else []
+
+        bugs_mass.append({'id': bug[0],
+                          'number': bug[1],
+                          'date': bug[2],
+                          'address': bug[3],
+                          'name': bug[4],
+                          'description': bug[5],
+                          'status': bug[6],
+                          'duration': duration,
+                          'perform': perform,
+                          'localisation': localisation,
+                          'accounts': accounts_dicts,
+                          'reason_close': bug[13],
+                          })
+    return bugs_mass
+
+
+@login_required
+def tickets_mass(request, year='', month='', last='week', csv_flag=False):
+    '''Генерация списка массовых тикетов
+    '''
+    if not request.user.groups.filter(name__exact='tickets').exists():
+        context = {'user': request.user.username,
+                   'error': 'Не хватает прав!'
+                   }
+        return render(request, 'audit/error.html', context)
+
+    logger.info(
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' %
+        (request.user, tickets_mass.__name__, last, year, month)
+    )
+
+    # Формируем даты начала и конца периода
+    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+
+    # Получить массовые тикеты
+    bugs_mass = fetch_tickets_mass(date_begin, date_end)
 
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(3)
@@ -2868,7 +2857,7 @@ month="%s"' %
         (request.user, survey_report.__name__, last, year, month)
     )
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
@@ -3063,7 +3052,7 @@ month="%s"' %
     from itertools import groupby
     from audit.crmdict import connection_status, connection_type
 
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
@@ -3300,7 +3289,7 @@ def support_report(request, year='', month='', csv_flag=False, last='week'):
 month="%s"' %
         (request.user, support_report.__name__, last, year, month)
     )
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
     if date_begin is None or date_end is None:
         context = {'user': request.user.username,
@@ -3421,7 +3410,7 @@ def acc_question_stat(request, year='', month='', csv_flag=False, last='week'):
 month="%s"' %
         (request.user, acc_question_stat.__name__, last, year, month)
     )
-    # Формируем даты начала и конеца периода
+    # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
