@@ -3014,28 +3014,10 @@ def gen_connections_period(connections, period):
     return stat_period
 
 
-@login_required
-def connections_report(request, year='', month='', last='week',
-                       csv_flag=False,):
-    '''Функция генерации отчёта по плану работ
+def fetch_connections(date_begin, date_end):
+    '''Получить работы из плана работ
     '''
-    if not request.user.groups.filter(name__exact='tickets').exists():
-        context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
-                   }
-        return render(request, 'audit/error.html', context)
-
-    logger.info(
-        'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-        (request.user, connections_report.__name__, last, year, month)
-    )
-
-    from itertools import groupby
     from audit.crmdict import connection_status, connection_type
-
-    # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
 
@@ -3064,50 +3046,64 @@ ORDER BY t2.date_connection_c
          'date_modified': con[3],
          'create_by': con[4],
          'modified_by': con[5],
+         'delete': con[6],
          'address': con[7],
          'date': con[8],
-         'type': connection_type.get(con[9]),
-         'status': connection_status.get(con[10]),
+         'type': connection_type.get(con[9], con[9]),
+         'status': connection_status.get(con[10], con[10]),
          'desc': con[11],
          'radio': con[12],
          'level_signal': con[13],
          'channel_speed': con[14],
          'comment_mount': con[15],
-         } for con in connections if con[6] == 0]
+         } for con in connections]
+    return connections_dict
+
+
+@login_required
+def connections_report(request, year='', month='', last='week',
+                       csv_flag=False,):
+    '''Функция генерации отчёта по плану работ
+    '''
+    if not request.user.groups.filter(name__exact='tickets').exists():
+        context = {'user': request.user.username,
+                   'error': 'Не хватает прав!'
+                   }
+        return render(request, 'audit/error.html', context)
+
+    logger.info(
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' %
+        (request.user, connections_report.__name__, last, year, month)
+    )
+
+    from itertools import groupby
+
+    # Формируем даты начала и конца периода
+    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+
+    connections = fetch_connections(date_begin, date_end)
+
+    # Список работ без удалённых записей
+    connections_active = [con for con in connections if con['delete'] == 0]
     # Список удалённых работ
-    connections_del_dict = [
-        {'id': con[0],
-         'name': con[1],
-         'date_entered': con[2],
-         'date_modified': con[3],
-         'create_by': con[4],
-         'modified_by': con[5],
-         'address': con[7],
-         'date': con[8],
-         'type': connection_type.get(con[9]),
-         'status': connection_status.get(con[10]),
-         'desc': con[11],
-         'radio': con[12],
-         'level_signal': con[13],
-         'channel_speed': con[14],
-         'comment_mount': con[15],
-         } for con in connections if con[6] != 0]
+    connections_del = [con for con in connections if con['delete'] != 0]
 
     # Формируем статистику по работам
-    statistics = gen_stat_connections(connections_dict)
+    statistics = gen_stat_connections(connections_active)
 
     # Формируем отчётные периоды (список дат)
     period = gen_period(date_begin, date_end)
 
     # Расчитываем статистику подневную/понедельную/помесячную
-    statistics_period = gen_connections_period(connections_dict, period)
+    statistics_period = gen_connections_period(connections_active, period)
 
     # Считаем статистику подневную/понедельную/помесячную по менеджерам
     # Скважность задана в списке period
     statistics_manager_period = []
 
     def sort_create_by(x): return x.get('create_by')
-    for k, g in groupby(sorted(connections_dict, key=sort_create_by),
+    for k, g in groupby(sorted(connections_active, key=sort_create_by),
                         sort_create_by):
         connections_man = list(g)
         stat_period = gen_connections_period(connections=connections_man,
@@ -3122,7 +3118,7 @@ ORDER BY t2.date_connection_c
 
     # Группируем осмотры по типу
     def sort_type(x): return x.get('type')
-    for k, g in groupby(sorted(connections_dict, key=sort_type), sort_type):
+    for k, g in groupby(sorted(connections_active, key=sort_type), sort_type):
         connections_type = list(g)
         stat_period = gen_connections_period(connections=connections_type,
                                              period=period)
@@ -3134,8 +3130,8 @@ ORDER BY t2.date_connection_c
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
 
-    context = {'connections': connections_dict,
-               'connections_del': connections_del_dict,
+    context = {'connections': connections_active,
+               'connections_del': connections_del,
                'statistics': statistics,
                'statistics_period': statistics_period,
                'statistics_type_period': statistics_type_period,
