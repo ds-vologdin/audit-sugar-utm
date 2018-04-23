@@ -3153,47 +3153,50 @@ month="%s"' %
     return render(request, 'audit/connections.html', context)
 
 
-def gen_noanswer_period(noanswers, period):
+def calc_noanswer_statistics_periods(noanswers, periods):
+    ''' Вычисление статистики по пропущенным вызовам '''
     stat_period = []
-    # Пробегаем по каждому отрезку периода
-    for i in range(len(period[0:-1])):
-        date_cur = period[i]
-        date_next = period[i+1]
+    for date_begin, date_end in periods:
+        # Формируем срез данных по неогтвеченным вызовам
+        noanswers_period = [
+            noanswer for noanswer in noanswers
+            if (noanswer.calldate.date() >= date_begin and
+                noanswer.calldate.date() < date_end)
+        ]
         count_no_recall = 0     # Количество потерянных
         count_recall = 0        # Количество тем, кому перезвонили
         count_call = 0          # Кто дозвонился сам
-        count = 0               # Всего
-        for noanswer in noanswers:
-            if (noanswer.calldate.date() >= date_cur and
-                    noanswer.calldate.date() < date_next):
-                count += 1
-                if noanswer.done == 0:
-                    count_no_recall += 1
-                else:
-                    if noanswer.retry == 0:
-                        count_recall += 1
-                    else:
-                        count_call += 1
-        stat_period.append({'date': date_cur,
+        for noanswer in noanswers_period:
+            if noanswer.done == 0:
+                count_no_recall += 1
+            elif noanswer.retry == 0:
+                count_recall += 1
+            else:
+                count_call += 1
+        stat_period.append({'date': date_begin,
                             'count_no_recall': count_no_recall,
                             'count_recall': count_recall,
                             'count_call': count_call,
-                            'count': count,
+                            'count': len(noanswers_period),
                             })
     return stat_period
 
 
-def calc_support_statistic_date(events, date_begin, date_end):
+def calc_support_statistic_dates(events, date_begin, date_end):
+    ''' Расчёт статистики по звонкам в техподдрежку в заданом
+        промежутке времени
+    '''
     # Выбираем события попадающий в интересующий нас отрезок времени
     events_curent = [
-        event for event in events if (event.date_event.date() >= date_begin and
-                                      event.date_event.date() < date_end)]
+        event for event in events
+        if (event.date_event.date() >= date_begin and
+            event.date_event.date() < date_end)
+    ]
 
     # Считаем количество звонков, пропущенных звонков, собираем hold_time
     count_calls = 0
     count_complete = 0
     count_abandon = 0
-    count_abandon_15 = 0
     hold_time = []
     hold_time_abandon = []
     for event in events_curent:
@@ -3239,16 +3242,14 @@ def calc_support_statistic_date(events, date_begin, date_end):
             }
 
 
-def gen_support_period(events, period):
+def calc_support_statistics_periods(events, periods):
     '''Рассчитываем статистику звонков в саппорт в каждом периоде
     '''
-    stat_period = []
-    # Пробегаем по каждому отрезку периода
-    for i in range(len(period[0:-1])):
-        date_cur = period[i]
-        date_next = period[i+1]
-        stat_period.append(
-            calc_support_statistic_date(events, date_cur, date_next))
+    stat_period = [
+        calc_support_statistic_dates(events, date_begin, date_end)
+        for date_begin, date_end in periods
+    ]
+
     # [{'date': date, 'count': count, 'complete': count_complete,
     #   'abandon': count_abandon, 'abandon_15': count_abandon_15,
     #   'hold_time': mediana_hold_time,
@@ -3276,11 +3277,6 @@ month="%s"' %
     )
     # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
-    if date_begin is None or date_end is None:
-        context = {'user': request.user.username,
-                   'error': 'Ошибка задания дат'
-                   }
-        return render(request, 'audit/error.html', context)
 
     # Запрашиваем события в очереди за нужный период
     events = QueueLog.objects.filter(
@@ -3292,13 +3288,13 @@ month="%s"' %
     ).order_by('date_event')
 
     # Формируем отчётные периоды (список дат)
-    period = gen_period(date_begin, date_end)
+    periods = gen_report_periods(date_begin, date_end)
 
     # Формируем распределённую (по датам) статистику
     # events_period = gen_support_period(events_dict, period)
-    events_period = gen_support_period(events, period)
+    events_period = calc_support_statistics_periods(events, periods)
 
-    # Запрашиваем из БД информацию "перезвонам"
+    # Запрашиваем из БД информацию по обрботке пропущенных звонков
     noanswers = TpNoAnswered.objects.filter(
         calldate__gte=date_begin
     ).filter(
@@ -3306,7 +3302,7 @@ month="%s"' %
     ).order_by('calldate')
 
     # Формируем распределённую по датам статистику
-    noanswers_period = gen_noanswer_period(noanswers, period)
+    noanswers_period = calc_noanswer_statistics_periods(noanswers, periods)
 
     # Формируем список потерянных звонков
     not_recalls = [{'callid': noanswer.callerid,
