@@ -152,53 +152,6 @@ def next_month(date_val):
         return date(year=date_val.year+1, month=1, day=1)
 
 
-def gen_week_period(date_begin, date_end):
-    '''Устарела, используется только в gen_period
-    Как только gen_period удалю, надо не забыть удалить и её
-    '''
-    # Считаем статистику кратно 7 дням от конца периода
-    # Смещаемся на начало текущей недели
-    from calendar import weekday
-
-    delta = date_end - date_begin
-    delta_week = timedelta(days=weekday(date_end.year,
-                                        date_end.month, date_end.day))
-    begin_period = date_end - delta_week - timedelta(days=(delta.days//7)*7)
-    period = [begin_period + timedelta(days=i)
-              for i in range(0, delta.days+7, 7)]
-    return period
-
-
-def gen_period(date_begin, date_end):
-    '''
-    TODO: УСТАРЕЛА! Надо везде заменить на gen_report_periods !!!!!!!!!!!!!!!!
-    Формируем список дат: помесячный, если период более 120 дней
-    понедельный, если от 31 до 120 дней
-    подневной, если до 31 дня
-    Возвращаем period, последнее значение используем как закрывающую дату
-    period = [d1, d2, ..., d(n-1), dn]
-    используем date >= d1 and date < d2, ... date >= d(n-1) and date < dn
-    '''
-    delta = date_end - date_begin
-    period = []
-    if delta < timedelta(days=31):
-        period = [date_begin + timedelta(days=i) for i in range(delta.days+1)]
-    elif delta < timedelta(days=120):
-        period = gen_week_period(date_begin, date_end)
-    else:
-        # Помесячная статистика
-        if date_begin.day > 1:
-            begin_period = next_month(date_begin)
-        else:
-            begin_period = date_begin
-        while begin_period <= date_end:
-            period.append(begin_period)
-            begin_period = next_month(begin_period)
-        # Надо добавить ещё и следующий месяц
-        period.append(begin_period)
-    return period
-
-
 def gen_report_periods(date_begin, date_end):
     '''
     Формируем список дат: помесячный, если период более 120 дней
