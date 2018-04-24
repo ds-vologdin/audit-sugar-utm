@@ -788,7 +788,7 @@ def block_users_month(request, year='2017', month='01', ods_flag=False):
     # Получаем список пользователей с блокировкой
     users_blok = fetch_users_block_month(date_start, date_stop)
 
-    # Для выпадающего списка меню
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
 
     if ods_flag:
@@ -1191,6 +1191,7 @@ def hardware_remove(request, year='2017', month='01', day='01',
         return response
 
     # ods файл не запрошен
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=6)
 
     context = {'hw_removes': hardwares,
@@ -1389,6 +1390,7 @@ month="%s"' %
         return response
 
     # Формируем HTML
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(3)
     type_report = gen_type_report(year=year, month=month)
@@ -1514,6 +1516,7 @@ month="%s"' %
         return response
 
     # Флаг csv_flag не задан
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     type_report = gen_type_report(year, month)
 
@@ -1867,6 +1870,7 @@ ORDER BY t1.bug_number DESC
         return response
 
     # формируем html
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
@@ -1998,6 +2002,7 @@ ORDER BY t2.date_of_completion_c DESC
             repairs_cat_work, periods
         )
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
@@ -2647,6 +2652,7 @@ month="%s"' %
                              account.get('kg')])
         return response
     # Формируем html
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(3)
     type_report = gen_type_report(year=year, month=month)
@@ -2771,6 +2777,7 @@ month="%s"' %
     # Получить массовые тикеты
     bugs_mass = fetch_tickets_mass(date_begin, date_end)
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(3)
     type_report = gen_type_report(year=year, month=month)
@@ -2942,6 +2949,7 @@ month="%s"' %
     # Формируем статистику по осмотрам
     statistics = calc_survey_statistics_periods(surveys_dict, periods)
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
@@ -3133,6 +3141,7 @@ month="%s"' %
              'stat': stat_period}
         )
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
@@ -3231,15 +3240,16 @@ def calc_support_statistic_dates(events, date_begin, date_end):
     hold_time_15 = [ht for ht in hold_time if ht < 15]
     count_hold_time_15 = len(hold_time_15)
 
-    return {'date': date_begin,
-            'count': count_calls,
-            'complete': count_complete,
-            'abandon': count_abandon,
-            'abandon_15': count_abandon_15,
-            'hold_time': mediana_hold_time,
-            'hold_time_abandon': mediana_hold_time_abandon,
-            'count_hold_time_15': count_hold_time_15,
-            }
+    return {
+        'date': date_begin,
+        'count': count_calls,
+        'complete': count_complete,
+        'abandon': count_abandon,
+        'abandon_15': count_abandon_15,
+        'hold_time': mediana_hold_time,
+        'hold_time_abandon': mediana_hold_time_abandon,
+        'count_hold_time_15': count_hold_time_15,
+    }
 
 
 def calc_support_statistics_periods(events, periods):
@@ -3275,6 +3285,7 @@ def support_report(request, year='', month='', last='week', csv_flag=False):
 month="%s"' %
         (request.user, support_report.__name__, last, year, month)
     )
+
     # Формируем даты начала и конца периода
     date_begin, date_end = gen_report_begin_end_date(year, month, last)
 
@@ -3291,7 +3302,6 @@ month="%s"' %
     periods = gen_report_periods(date_begin, date_end)
 
     # Формируем распределённую (по датам) статистику
-    # events_period = gen_support_period(events_dict, period)
     events_period = calc_support_statistics_periods(events, periods)
 
     # Запрашиваем из БД информацию по обрботке пропущенных звонков
@@ -3305,45 +3315,47 @@ month="%s"' %
     noanswers_period = calc_noanswer_statistics_periods(noanswers, periods)
 
     # Формируем список потерянных звонков
-    not_recalls = [{'callid': noanswer.callerid,
-                    'date': noanswer.calldate,
-                    'retry': noanswer.retry}
-                   for noanswer in noanswers if noanswer.done == 0]
+    not_recalls = [
+        {'callid': noanswer.callerid,
+         'date': noanswer.calldate,
+         'retry': noanswer.retry}
+        for noanswer in noanswers if noanswer.done == 0
+    ]
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
 
-    context = {'events': events,
-               'events_period': events_period,
-               'not_recalls': not_recalls,
-               'noanswers_period': noanswers_period,
-               'date_begin': date_begin,
-               'date_end': date_end,
-               'months': months_report,
-               'years': years_report,
-               'type': type_report,
-               'menu_url': '/audit/support/',
-               }
+    context = {
+        'events': events,
+        'events_period': events_period,
+        'not_recalls': not_recalls,
+        'noanswers_period': noanswers_period,
+        'date_begin': date_begin,
+        'date_end': date_end,
+        'months': months_report,
+        'years': years_report,
+        'type': type_report,
+        'menu_url': '/audit/support/',
+    }
     return render(request, 'audit/support.html', context)
 
 
-def gen_quetions_period(questions, period):
+def calc_quetions_statistic_periods(questions, periods):
     '''Генерация статистики за каждый период в списке периодов :)
     '''
     stat_period = []
-    # Пробегаем по каждому отрезку периода
-    for i in range(len(period[0:-1])):
-        date_cur = period[i]
-        date_next = period[i+1]
-        count = 0
-        for question in questions:
-            if (question.get('date') >= date_cur and
-                    question.get('date') < date_next):
-                count += 1
-        stat_period.append({'date': date_cur,
-                            'count': count,
-                            })
+    for date_begin, date_end in periods:
+        questions_period = [
+            question for question in questions
+            if (question.get('date') >= date_begin and
+                question.get('date') < date_end)
+        ]
+        stat_period.append(
+            {'date': date_begin,
+             'count': len(questions_period)}
+        )
     return stat_period
 
 
@@ -3372,29 +3384,10 @@ def is_bad_feedback(question):
     return False
 
 
-@login_required
-def acc_question_stat(request, year='', month='', last='week', csv_flag=False):
-    '''Функция генерации отчёта по работе callcenter техподдержки
-    '''
-    # Проверяем права пользователя
-    if not request.user.groups.filter(name__exact='tickets').exists():
-        context = {'user': request.user.username,
-                   'error': 'Не хватает прав!'
-                   }
-        return render(request, 'audit/error.html', context)
-
+def fetch_questions(db, date_begin, date_end):
+    ''' Получить список проведённых опросов '''
     from audit.crmdict import quality_client, type_question, support_calls,\
         question_list
-
-    logger.info(
-        'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-        (request.user, acc_question_stat.__name__, last, year, month)
-    )
-    # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
-
-    db = MySqlDB()
 
     # Запрос перечня проведённых опросов
     sql = '''SELECT t1.id, t1.name, t2.last_name, t1.type, t1.date_question,
@@ -3410,62 +3403,98 @@ WHERE t1.deleted = 0 AND date_question BETWEEN '%s' AND '%s'
 
     questions = db.sqlQuery(sql)
 
-    # Формируем список словарей (удобнее работать)
-    questions_dict = [
+    # Формируем список словарей
+    questions_dicts = [
         {'id': question[0],
          'name': question[1],
          'user': question[2],
-         'type': type_question.get(question[3]),
+         'type': type_question.get(question[3], question[3]),
          'date': question[4],
          'account': question[5],
          'manager': question[6],
          'contact': question[7],
-         'support_calls': support_calls.get(question[8]),
-         'support': question_list.get(question[9]),
-         'install': question_list.get(question[10]),
-         'sell': question_list.get(question[11]),
-         'quality_client': quality_client.get(question[12]),
+         'support_calls': support_calls.get(question[8], question[8]),
+         'support': question_list.get(question[9], question[9]),
+         'install': question_list.get(question[10], question[10]),
+         'sell': question_list.get(question[11], question[11]),
+         'quality_client': quality_client.get(question[12], question[12]),
          'description': question[13],
          'service_problem': question[14],
          'account_id': question[15],
-         'address': question[16], } for question in questions]
-    # Формируем список опросов с плохими отзывами
-    bad_questions_dict = []
-    for question in questions_dict:
-        # Смотрим плохой ли отзыв
-        if is_bad_feedback(question):
-            # Отзыв плохой, ищем тикеты у контрагента и все сохраняем
-            # в bad_questions_dict
-            sql = '''SELECT t2.id, t2.bug_number FROM accounts_bugs t1
+         'address': question[16]}
+        for question in questions
+    ]
+    return questions_dicts
+
+
+def fetch_bugs_in_accounts(db, account):
+    ''' Получить список тикетов у котнрагента '''
+    sql = '''SELECT t2.id, t2.bug_number FROM accounts_bugs t1
 LEFT JOIN bugs t2 ON t1.bug_id = t2.id
 WHERE t1.account_id = '%s'
 ORDER BY t2.bug_number DESC
-            ''' % question.get('account_id')
-            bugs = db.sqlQuery(sql)
-            bugs_dict = [{'id': bug[0], 'number': bug[1]} for bug in bugs]
-            question['bugs'] = bugs_dict
-            bad_questions_dict.append(question)
+    ''' % account
+    bugs = db.sqlQuery(sql)
+    return [{'id': bug[0], 'number': bug[1]} for bug in bugs]
+
+
+@login_required
+def acc_question_stat(request, year='', month='', last='week', csv_flag=False):
+    '''Функция генерации отчёта по работе callcenter техподдержки
+    '''
+    # Проверяем права пользователя
+    if not request.user.groups.filter(name__exact='tickets').exists():
+        context = {'user': request.user.username,
+                   'error': 'Не хватает прав!'
+                   }
+        return render(request, 'audit/error.html', context)
+
+    logger.info(
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' %
+        (request.user, acc_question_stat.__name__, last, year, month)
+    )
+
+    # Формируем даты начала и конца периода
+    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+
+    db = MySqlDB()
+
+    # Запрос перечня проведённых опросов
+    questions = fetch_questions(db, date_begin, date_end)
+
+    # Формируем список опросов с плохими отзывами
+    questions_bad_feedback = [
+        question for question in questions if is_bad_feedback(question)
+    ]
+    # Получить список тикетов у контрагентов, оставивших плохой отзыв
+    for question in questions_bad_feedback:
+        question['bugs'] = fetch_bugs_in_accounts(db, question['account_id'])
 
     # Формируем отчётные периоды (список дат)
-    period = gen_period(date_begin, date_end)
+    periods = gen_report_periods(date_begin, date_end)
 
     # Формируем распределённую по датам статистику
-    questions_period = gen_quetions_period(questions_dict, period)
-    bad_questions_period = gen_quetions_period(bad_questions_dict, period)
+    statistic_questions_period = \
+        calc_quetions_statistic_periods(questions, periods)
+    statistic_questions_bad_feedback_period = \
+        calc_quetions_statistic_periods(questions_bad_feedback, periods)
 
+    # Формируем переменные для меню шаблона
     months_report = gen_last_months(last=12)
     years_report = gen_last_years(last=5)
     type_report = gen_type_report(year=year, month=month)
 
-    context = {'questions': bad_questions_dict,
-               'questions_length': len(questions_dict),
-               'questions_period': questions_period,
-               'bad_questions_period': bad_questions_period,
-               'date_begin': date_begin,
-               'date_end': date_end,
-               'months': months_report,
-               'years': years_report,
-               'type': type_report,
-               'menu_url': '/audit/acc_question/',
-               }
+    context = {
+        'questions': questions_bad_feedback,
+        'questions_length': len(questions),
+        'questions_period': statistic_questions_period,
+        'bad_questions_period': statistic_questions_bad_feedback_period,
+        'date_begin': date_begin,
+        'date_end': date_end,
+        'months': months_report,
+        'years': years_report,
+        'type': type_report,
+        'menu_url': '/audit/acc_question/',
+    }
     return render(request, 'audit/acc_question.html', context)
