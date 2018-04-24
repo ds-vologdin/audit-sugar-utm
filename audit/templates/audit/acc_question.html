@@ -121,7 +121,7 @@ var stat_period = new Chart(ctx_stat_period, {
             data: [{% for stat in questions_period %} {{ stat.count }}, {% endfor %}],
             },
             {
-            label: "Недовлетворены сервисом",
+            label: "Неудовлетворены сервисом",
             backgroundColor: 'transparent',
             borderColor: 'red',
             data: [{% for stat in bad_questions_period %} {{ stat.count }}, {% endfor %}],
