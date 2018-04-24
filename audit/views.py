@@ -53,7 +53,7 @@ class LogoutView(View):
 
 
 # Базовые функции
-def gen_report_begin_end_date(year='', month='', last='month'):
+def get_report_begin_end_date(year='', month='', last='month'):
     '''Функция формирования даты начала и конца отчётного периода'''
     if year == '':
         # не задан год
@@ -92,7 +92,7 @@ def gen_report_begin_end_date(year='', month='', last='month'):
     return date_begin, date_end
 
 
-def gen_type_report(year, month):
+def get_type_report(year, month):
     '''Частая конструкция для определения типа отчёта: last, year, month
     '''
     if year == '' and month == '':
@@ -104,11 +104,11 @@ def gen_type_report(year, month):
     return ''
 
 
-def gen_last_months(last=12):
+def get_last_months(last=12):
     ''' Функция генерации списка последних месяцев для выпадающего списка меню
-    >>> len(gen_last_months(12))
+    >>> len(get_last_months(12))
     12
-    >>> len(gen_last_months(2))
+    >>> len(get_last_months(2))
     2
     '''
     date_iter = date.today().replace(day=1)
@@ -133,7 +133,7 @@ def gen_last_months(last=12):
     return months_report
 
 
-def gen_last_years(last=5):
+def get_last_years(last=5):
     ''' Функция генерации списка последних лет для выпадающего списка меню
     '''
     date_cur = date.today().replace(month=1, day=1)
@@ -152,7 +152,7 @@ def next_month(date_val):
         return date(year=date_val.year+1, month=1, day=1)
 
 
-def gen_report_periods(date_begin, date_end):
+def get_report_periods(date_begin, date_end):
     '''
     Формируем список дат: помесячный, если период более 120 дней
     понедельный, если от 31 до 120 дней
@@ -228,7 +228,7 @@ ORDER BY datep''' % (date_begin, date_end + timedelta(days=1))
     return pays_dicts
 
 
-def calc_pays_stat_periods(pays, report_periods):
+def calculate_pays_stat_periods(pays, report_periods):
     '''Функция рассчитывает статистику по платежам за каждый период
        в report_periods
     '''
@@ -342,17 +342,17 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Получаем данные из БД UTM
     db = PgSqlDB()
     pays = fetch_pays_from_utm(db, date_begin, date_end)
 
     # Формируем отчётные периоды (разбиваем date_begin - date_end на отрезки)
-    report_periods = gen_report_periods(date_begin, date_end)
+    report_periods = get_report_periods(date_begin, date_end)
 
     # Расчитываем помесячную статистику
-    pays_stat_periods = calc_pays_stat_periods(pays, report_periods)
+    pays_stat_periods = calculate_pays_stat_periods(pays, report_periods)
 
     # Считаем статистику по всем платежам
     summ_pay, count_pay = 0, 0
@@ -403,9 +403,9 @@ month="%s"' %
                 balances_periods[i].get('summ', 0)
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year, month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year, month)
 
     context = {
         'pays_stat': pays_stat_periods,
@@ -482,7 +482,7 @@ ORDER BY unlink_date desc''' % block[0]
     return users_block
 
 
-def gen_ods_user_block_month(users_blok, date_start, date_stop):
+def create_ods_user_block_month(users_blok, date_start, date_stop):
     # Библиотеки для формирования ods файлов
     from odf.opendocument import OpenDocumentSpreadsheet
     from odf.style import Style, TextProperties, TableColumnProperties, \
@@ -736,13 +736,13 @@ def block_users_month(request, year='2017', month='01', ods_flag=False):
     )
 
     # Формируем даты начала и конца периода
-    date_start, date_stop = gen_report_begin_end_date(year, month)
+    date_start, date_stop = get_report_begin_end_date(year, month)
 
     # Получаем список пользователей с блокировкой
     users_blok = fetch_users_block_month(date_start, date_stop)
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
+    months_report = get_last_months(last=12)
 
     if ods_flag:
         # Запрошен отчёт в ods файле
@@ -750,7 +750,7 @@ def block_users_month(request, year='2017', month='01', ods_flag=False):
         response['Content-Disposition'] = 'attachment; filename=\
 "block_users_%s%s.ods"' % (year, month)
         # Формируем ods файл
-        report_ods = gen_ods_user_block_month(
+        report_ods = create_ods_user_block_month(
             users_blok, date_start, date_stop
         )
         report_ods.write(response)
@@ -844,7 +844,7 @@ WHERE t4.login_ph_c = '%s'
     return user_remove_hardware
 
 
-def gen_ods_hardware_remove(hardwares, date_stat):
+def create_ods_hardware_remove(hardwares, date_stat):
     # Библиотеки для формирования ods файлов
     from odf.opendocument import OpenDocumentSpreadsheet
     from odf.style import Style, TextProperties, TableColumnProperties, \
@@ -1138,14 +1138,14 @@ def hardware_remove(request, year='2017', month='01', day='01',
 "hw_remove_%s%s%s.ods"' % (year, month, day)
 
         # Формируем ods файл
-        report_ods = gen_ods_hardware_remove(hardwares, date_stat)
+        report_ods = create_ods_hardware_remove(hardwares, date_stat)
         report_ods.write(response)
 
         return response
 
     # ods файл не запрошен
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=6)
+    months_report = get_last_months(last=6)
 
     context = {'hw_removes': hardwares,
                'date_stat': date_stat,
@@ -1314,7 +1314,7 @@ month="%s"' %
     db = MySqlDB()
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Получаем статистику по открытым тикетам
     tickets_open_stat = fetch_tickets_open_stat(db, date_begin, date_end)
@@ -1344,9 +1344,9 @@ month="%s"' %
 
     # Формируем HTML
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(3)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(3)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'tickets': tickets_open_stat,
                'tickets_stat': tickets_type_stat,
@@ -1441,7 +1441,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     tickets = fetch_tickets_bad_fill(date_begin, date_end)
 
@@ -1470,8 +1470,8 @@ month="%s"' %
 
     # Флаг csv_flag не задан
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    type_report = gen_type_report(year, month)
+    months_report = get_last_months(last=12)
+    type_report = get_type_report(year, month)
 
     context = {'tickets': tickets,
                'date_begin': date_begin,
@@ -1483,7 +1483,7 @@ month="%s"' %
     return render(request, 'audit/bad_fill.html', context)
 
 
-def gen_ods_repairs_dublicate(repairs_dub):
+def create_ods_repairs_dublicate(repairs_dub):
     # Библиотеки для формирования ods файлов
     from odf.opendocument import OpenDocumentSpreadsheet
     from odf.style import Style, TextProperties, TableColumnProperties, \
@@ -1723,7 +1723,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Ищем в базе ремонты
     db = MySqlDB()
@@ -1818,15 +1818,15 @@ ORDER BY t1.bug_number DESC
         response = HttpResponse(content_type='application/ods')
         response['Content-Disposition'] = 'attachment; filename=\
 "repair_dublicat_%s_%s.ods"' % (date_begin, date_end)
-        report_ods = gen_ods_repairs_dublicate(repairs_dub_dicts)
+        report_ods = create_ods_repairs_dublicate(repairs_dub_dicts)
         report_ods.write(response)
         return response
 
     # формируем html
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'repairs': repairs_dub_dicts,
                'date_begin': date_begin,
@@ -1839,7 +1839,7 @@ ORDER BY t1.bug_number DESC
     return render(request, 'audit/repairs_dublicate.html', context)
 
 
-def gen_repairs_stat_periods(repairs_list, periods):
+def calculate_repairs_statistic_periods(repairs_list, periods):
     '''Формируем статистику ремонтов
     '''
     from audit.crmdict import repair_status
@@ -1896,7 +1896,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Ищем в базе ремонты
     sql = '''SELECT t1.name, t1.description, t2.comment_c, t3.last_name,
@@ -1930,18 +1930,20 @@ ORDER BY t2.date_of_completion_c DESC
     ]
 
     # Разбиваем отчётный период на отрезки
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Формируем статистику
     repairs_man_stat = {}
-    stat_period_all = gen_repairs_stat_periods(repairs_list, periods)
+    stat_period_all = \
+        calculate_repairs_statistic_periods(repairs_list, periods)
     repairs_man_stat['all'] = stat_period_all
 
     # Разбиваем работы по исполнителям и считаем статистику по каждому из них
     def sort_user(x): return x.get('user')
     for k, g in groupby(sorted(repairs_list, key=sort_user), sort_user):
         repairs_man = list(g)
-        repairs_man_stat[k] = gen_repairs_stat_periods(repairs_man, periods)
+        repairs_man_stat[k] = \
+            calculate_repairs_statistic_periods(repairs_man, periods)
 
     # Разбиваем работы по категориям работ и считаем по каждой статистику
     repairs_cat_work_stat = {}
@@ -1951,14 +1953,14 @@ ORDER BY t2.date_of_completion_c DESC
     for k, g in groupby(sorted(repairs_list, key=sort_cat_work),
                         sort_cat_work):
         repairs_cat_work = list(g)
-        repairs_cat_work_stat[k] = gen_repairs_stat_periods(
+        repairs_cat_work_stat[k] = calculate_repairs_statistic_periods(
             repairs_cat_work, periods
         )
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'repairs': repairs_list,
                'repairs_man_stat': repairs_man_stat,
@@ -1995,7 +1997,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     sql = '''SELECT t4.name, t4.billing_address_street, t3.account_id, \
 COUNT(t1.id) count_bug
@@ -2076,7 +2078,7 @@ month="%s"' %
         )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Запрашиваем список телефонных номеров с количеством вонков в саппорт
     db = MySqlDB()
@@ -2170,7 +2172,6 @@ def find_account_in_desc(account, description):
     возвращаем True, если название организации в строке найдено
     False - не найдено
     '''
-
     # поскольку в описании название организации может не вполне
     # соответствовать записи в crm пытаемся удалить "лишнее"
     account = account.lower().replace(',', '').replace('ооо', '').\
@@ -2301,7 +2302,7 @@ def tickets_bad_fill_mass(request, year='', month='', last='week',
         return render(request, 'audit/error.html', context)
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     logger.info(
             'user "%s" run function %s whith arguments last="%s" year="%s" \
@@ -2319,7 +2320,7 @@ month="%s"' %
     return render(request, 'audit/tickets_bad_fill_mass.html', context)
 
 
-def calc_distr_duration_no_service(accounts_list, interval=None):
+def calculate_distr_duration_no_service(accounts_list, interval=None):
     '''Распределение простоев сервиса
     всё что больше последнего элемента не учитывается
     '''
@@ -2362,7 +2363,7 @@ def calc_distr_duration_no_service(accounts_list, interval=None):
     return distribution
 
 
-def calc_no_service_statistic_duration(durations):
+def calculate_no_service_statistic_duration(durations):
     '''Рассчитываем статистику по остановкам сервиса по данным
     из списка продолжительностей остановок сервиса
     '''
@@ -2395,7 +2396,7 @@ def calc_no_service_statistic_duration(durations):
     return statistic
 
 
-def calc_no_service_statistic(accounts_list):
+def calculate_no_service_statistic(accounts_list):
     '''Функция расчёта статистических показателей по оставнокам сервиса
     у клиентов
     '''
@@ -2409,7 +2410,7 @@ def calc_no_service_statistic(accounts_list):
 
     # Считаем статистику по списку остановок сервиса
     durations = [account['duration'] for account in accounts_list]
-    statistic = calc_no_service_statistic_duration(durations)
+    statistic = calculate_no_service_statistic_duration(durations)
 
     statistic['kg_bad'] = count_kg_bad
     statistic['kg_bad_per'] = count_kg_bad_per
@@ -2417,7 +2418,7 @@ def calc_no_service_statistic(accounts_list):
     return statistic
 
 
-def calc_no_service_statistic_bugs_periods(bug_list, periods):
+def calculate_no_service_statistic_bugs_periods(bug_list, periods):
     '''Функция расчёта статистических показателей по оставнокам сервиса
     у клиентов за каждый период в periods
     '''
@@ -2431,7 +2432,7 @@ def calc_no_service_statistic_bugs_periods(bug_list, periods):
                 bug['date'].date() < date_end)
         ]
         # Считаем статистику
-        statistic = calc_no_service_statistic_duration(durations)
+        statistic = calculate_no_service_statistic_duration(durations)
         statistic['date'] = date_begin
         statistic_periods.append(statistic)
     return statistic_periods
@@ -2527,7 +2528,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
 
@@ -2552,13 +2553,14 @@ month="%s"' %
     ]
 
     # Формируем статистику распределения простоев
-    durations_company = calc_distr_duration_no_service(accounts_company_list)
-    durations_man = calc_distr_duration_no_service(accounts_man_list)
+    durations_company = \
+        calculate_distr_duration_no_service(accounts_company_list)
+    durations_man = calculate_distr_duration_no_service(accounts_man_list)
 
     # Рассчитываем статистику по всем клиентам
-    statistic_all = calc_no_service_statistic(accounts)
-    statistic_man = calc_no_service_statistic(accounts_man_list)
-    statistic_company = calc_no_service_statistic(accounts_company_list)
+    statistic_all = calculate_no_service_statistic(accounts)
+    statistic_man = calculate_no_service_statistic(accounts_man_list)
+    statistic_company = calculate_no_service_statistic(accounts_company_list)
 
     statistics = {
         'all': statistic_all,
@@ -2567,10 +2569,11 @@ month="%s"' %
     }
 
     # Формируем периоды
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Считаем статистику по тикетам!!! не по контрагентам!!!
-    statistics_periods = calc_no_service_statistic_bugs_periods(bugs, periods)
+    statistics_periods = \
+        calculate_no_service_statistic_bugs_periods(bugs, periods)
 
     if csv_flag:
         import csv
@@ -2606,9 +2609,9 @@ month="%s"' %
         return response
     # Формируем html
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(3)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(3)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'accounts_company': accounts_company_list,
                'accounts_man': accounts_man_list,
@@ -2725,15 +2728,15 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Получить массовые тикеты
     bugs_mass = fetch_tickets_mass(date_begin, date_end)
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(3)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(3)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'bugs': bugs_mass,
                'date_begin': date_begin,
@@ -2788,7 +2791,7 @@ ORDER BY manager, t1.date_entered;
     return surveys_dict
 
 
-def calc_surveys_statistic(surveys):
+def calculate_surveys_statistic(surveys):
     from audit.crmdict import status_survey, status_rs, status_ess
     # Инициализация словарей
     statistics = {'count': len(surveys)}
@@ -2820,17 +2823,17 @@ def calc_surveys_statistic(surveys):
     return statistics
 
 
-def calc_survey_statistics_periods(surveys_dict, periods):
+def calculate_survey_statistics_periods(surveys_dict, periods):
     '''Расчитываем статистику по осмотрам
     '''
     from itertools import groupby
 
-    statistics = {'all': calc_surveys_statistic(surveys_dict)}
+    statistics = {'all': calculate_surveys_statistic(surveys_dict)}
 
     # Группируем осмотры по менеджерам
     def sort_manager(x): return x.get('manager')
     for k, g in groupby(surveys_dict, sort_manager):
-        statistics[k] = calc_surveys_statistic(list(g))
+        statistics[k] = calculate_surveys_statistic(list(g))
 
     # Считаем статистику по отчётным периодам
     statistics_periods = {}
@@ -2847,7 +2850,7 @@ def calc_survey_statistics_periods(surveys_dict, periods):
         ]
         statistics_all_managers_periods.append(
             {'date': date_begin,
-             'stat': calc_surveys_statistic(surveys_period)}
+             'stat': calculate_surveys_statistic(surveys_period)}
         )
 
     statistics_periods = {'all': statistics_all_managers_periods}
@@ -2866,7 +2869,7 @@ def calc_survey_statistics_periods(surveys_dict, periods):
             ]
             statistics_manager_periods.append(
                 {'date': date_begin,
-                 'stat': calc_surveys_statistic(surveys_period)}
+                 'stat': calculate_surveys_statistic(surveys_period)}
             )
         statistics_periods[manager] = statistics_manager_periods
 
@@ -2891,21 +2894,21 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Формируем отчётные периоды (список дат)
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Получаем осмотры
     surveys_dict = fetch_survey(date_begin, date_end)
 
     # Формируем статистику по осмотрам
-    statistics = calc_survey_statistics_periods(surveys_dict, periods)
+    statistics = calculate_survey_statistics_periods(surveys_dict, periods)
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'surveys': surveys_dict,
                'statistics': statistics,
@@ -2919,7 +2922,8 @@ month="%s"' %
     return render(request, 'audit/survey.html', context)
 
 
-def gen_stat_connections(connections_dict, date_begin=None, date_end=None):
+def calculate_connections_statistic(connections_dict, date_begin=None,
+                              date_end=None):
     '''Рассчитываем статистику по плану подключений
     '''
     from audit.crmdict import connection_type
@@ -2955,7 +2959,7 @@ def gen_stat_connections(connections_dict, date_begin=None, date_end=None):
     return statistics
 
 
-def calc_statistic_connections_periods(connections, periods):
+def calculate_connections_statistic_periods(connections, periods):
     '''Рассчитываем количества работ в каждом периоде
     '''
     stat_period = []
@@ -3040,7 +3044,7 @@ month="%s"' %
     from itertools import groupby
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     connections = fetch_connections(date_begin, date_end)
 
@@ -3050,13 +3054,13 @@ month="%s"' %
     connections_del = [con for con in connections if con['delete'] != 0]
 
     # Формируем статистику по работам
-    statistics = gen_stat_connections(connections_active)
+    statistics = calculate_connections_statistic(connections_active)
 
     # Формируем отчётные периоды (список дат)
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Расчитываем статистику подневную/понедельную/помесячную
-    statistics_period = calc_statistic_connections_periods(
+    statistics_period = calculate_connections_statistic_periods(
         connections_active, periods
     )
 
@@ -3068,7 +3072,7 @@ month="%s"' %
     for k, g in groupby(sorted(connections_active, key=sort_create_by),
                         sort_create_by):
         connections_man = list(g)
-        stat_period = calc_statistic_connections_periods(
+        stat_period = calculate_connections_statistic_periods(
             connections_man, periods
         )
         statistics_manager_period.append(
@@ -3085,7 +3089,7 @@ month="%s"' %
     def sort_type(x): return x.get('type')
     for k, g in groupby(sorted(connections_active, key=sort_type), sort_type):
         connections_type = list(g)
-        stat_period = calc_statistic_connections_periods(
+        stat_period = calculate_connections_statistic_periods(
             connections_type, periods
         )
         statistics_type_period.append(
@@ -3095,9 +3099,9 @@ month="%s"' %
         )
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {'connections': connections_active,
                'connections_del': connections_del,
@@ -3115,7 +3119,7 @@ month="%s"' %
     return render(request, 'audit/connections.html', context)
 
 
-def calc_noanswer_statistics_periods(noanswers, periods):
+def calculate_noanswer_statistics_periods(noanswers, periods):
     ''' Вычисление статистики по пропущенным вызовам '''
     stat_period = []
     for date_begin, date_end in periods:
@@ -3144,7 +3148,7 @@ def calc_noanswer_statistics_periods(noanswers, periods):
     return stat_period
 
 
-def calc_support_statistic_dates(events, date_begin, date_end):
+def calculate_support_statistic_dates(events, date_begin, date_end):
     ''' Расчёт статистики по звонкам в техподдрежку в заданом
         промежутке времени
     '''
@@ -3205,11 +3209,11 @@ def calc_support_statistic_dates(events, date_begin, date_end):
     }
 
 
-def calc_support_statistics_periods(events, periods):
+def calculate_support_statistics_periods(events, periods):
     '''Рассчитываем статистику звонков в саппорт в каждом периоде
     '''
     stat_period = [
-        calc_support_statistic_dates(events, date_begin, date_end)
+        calculate_support_statistic_dates(events, date_begin, date_end)
         for date_begin, date_end in periods
     ]
 
@@ -3240,7 +3244,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Запрашиваем события в очереди за нужный период
     events = QueueLog.objects.filter(
@@ -3252,10 +3256,10 @@ month="%s"' %
     ).order_by('date_event')
 
     # Формируем отчётные периоды (список дат)
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Формируем распределённую (по датам) статистику
-    events_period = calc_support_statistics_periods(events, periods)
+    events_period = calculate_support_statistics_periods(events, periods)
 
     # Запрашиваем из БД информацию по обрботке пропущенных звонков
     noanswers = TpNoAnswered.objects.filter(
@@ -3265,7 +3269,8 @@ month="%s"' %
     ).order_by('calldate')
 
     # Формируем распределённую по датам статистику
-    noanswers_period = calc_noanswer_statistics_periods(noanswers, periods)
+    noanswers_period = \
+        calculate_noanswer_statistics_periods(noanswers, periods)
 
     # Формируем список потерянных звонков
     not_recalls = [
@@ -3276,9 +3281,9 @@ month="%s"' %
     ]
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {
         'events': events,
@@ -3295,7 +3300,7 @@ month="%s"' %
     return render(request, 'audit/support.html', context)
 
 
-def calc_quetions_statistic_periods(questions, periods):
+def calculate_quetions_statistic_periods(questions, periods):
     '''Генерация статистики за каждый период в списке периодов :)
     '''
     stat_period = []
@@ -3409,7 +3414,7 @@ month="%s"' %
     )
 
     # Формируем даты начала и конца периода
-    date_begin, date_end = gen_report_begin_end_date(year, month, last)
+    date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     db = MySqlDB()
 
@@ -3425,18 +3430,18 @@ month="%s"' %
         question['bugs'] = fetch_bugs_in_accounts(db, question['account_id'])
 
     # Формируем отчётные периоды (список дат)
-    periods = gen_report_periods(date_begin, date_end)
+    periods = get_report_periods(date_begin, date_end)
 
     # Формируем распределённую по датам статистику
     statistic_questions_period = \
-        calc_quetions_statistic_periods(questions, periods)
+        calculate_quetions_statistic_periods(questions, periods)
     statistic_questions_bad_feedback_period = \
-        calc_quetions_statistic_periods(questions_bad_feedback, periods)
+        calculate_quetions_statistic_periods(questions_bad_feedback, periods)
 
     # Формируем переменные для меню шаблона
-    months_report = gen_last_months(last=12)
-    years_report = gen_last_years(last=5)
-    type_report = gen_type_report(year=year, month=month)
+    months_report = get_last_months(last=12)
+    years_report = get_last_years(last=5)
+    type_report = get_type_report(year=year, month=month)
 
     context = {
         'questions': questions_bad_feedback,

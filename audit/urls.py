@@ -5,7 +5,7 @@ from . import views
 CACHE_TIME = 1 * 15
 
 
-def gen_url_year_month_last(view_function, csv_flag=False, ods_flag=False):
+def get_url_year_month_last(view_function, csv_flag=False, ods_flag=False):
     # last - week, month, quarter, year, 2year, 3year
     urlpatterns = [
         url(r'^(?P<year>[0-9]{4})/$',
@@ -45,12 +45,12 @@ urlpatterns = [
 
     # ex. /audit/utmpays
     url(r'^utmpays/', include(
-        gen_url_year_month_last(views.utmpays_statistic)
+        get_url_year_month_last(views.utmpays_statistic)
     )),
 
     # ex. /audit/block/
     url(r'^block/', include(
-        gen_url_year_month_last(views.block_users_month, ods_flag=True)
+        get_url_year_month_last(views.block_users_month, ods_flag=True)
     )),
 
     # ex. /audit/hwremove/2017/07/03/01/
@@ -62,67 +62,67 @@ urlpatterns = [
 
     # ex. /audit/tickets/
     url(r'^tickets/', include(
-        gen_url_year_month_last(views.tickets_open, csv_flag=True)
+        get_url_year_month_last(views.tickets_open, csv_flag=True)
     )),
 
     # ex. /audit/tickets/bad_fill/
     url(r'^tickets/bad_fill/', include(
-        gen_url_year_month_last(views.tickets_bad_fill, csv_flag=True)
+        get_url_year_month_last(views.tickets_bad_fill, csv_flag=True)
     )),
 
     # ex. /audit/repairs/
     url(r'^repairs/', include(
-        gen_url_year_month_last(views.repairs_stat)
+        get_url_year_month_last(views.repairs_stat)
     )),
 
     # ex. /audit/dublicate/
     url(r'^repairs/dublicate/', include(
-        gen_url_year_month_last(views.repairs_dublicate, ods_flag=True)
+        get_url_year_month_last(views.repairs_dublicate, ods_flag=True)
     )),
 
     # ex. /audit/top_tickets/
     url(r'^top_tickets/', include(
-        gen_url_year_month_last(views.top_tickets)
+        get_url_year_month_last(views.top_tickets)
     )),
 
     # ex. /audit/top_calls/
     url(r'^top_calls/', include(
-        gen_url_year_month_last(views.top_calls)
+        get_url_year_month_last(views.top_calls)
     )),
 
     # ex. /audit/tickets/bad_fill_mass/
     url(r'^tickets/bad_fill_mass/', include(
-        gen_url_year_month_last(views.tickets_bad_fill_mass)
+        get_url_year_month_last(views.tickets_bad_fill_mass)
     )),
 
     # ex. /audit/tickets/top_no_service/
     url(r'^tickets/top_no_service/', include(
-        gen_url_year_month_last(views.top_no_service, csv_flag=True)
+        get_url_year_month_last(views.top_no_service, csv_flag=True)
     )),
 
     # ex. /audit/tickets/mass/
     url(r'^tickets/mass/', include(
-        gen_url_year_month_last(views.tickets_mass)
+        get_url_year_month_last(views.tickets_mass)
     )),
 
     # ex. /audit/survey/
     url(r'^survey/', include(
-        gen_url_year_month_last(views.survey_report)
+        get_url_year_month_last(views.survey_report)
     )),
 
     # ex. /audit/connections/
     url(r'^connections/', include(
-        gen_url_year_month_last(views.connections_report)
+        get_url_year_month_last(views.connections_report)
     )),
 
     # ex. /audit/support/
     url(r'^support/', include(
-        gen_url_year_month_last(views.support_report)
+        get_url_year_month_last(views.support_report)
     )),
 
     # ex. /audit/acc_question/
     url(r'^acc_question/', include(
-        gen_url_year_month_last(views.acc_question_stat)
+        get_url_year_month_last(views.acc_question_stat)
     )),
 
     url(r'^login/$', views.LoginFormView.as_view()),
