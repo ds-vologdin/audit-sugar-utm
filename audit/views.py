@@ -1159,7 +1159,7 @@ def fetch_ticket_type_stat(db, date_begin, date_end):
     Определяет распределение тикетов по локализаци, по типам проведения работ,
     по ремени отсуствия сервиса у абонентов
     '''
-    from audit.crmdict import bug_perform_list, bug_localisation_list
+    from audit.crmdict import bug_perform_type, bug_localisation_type
 
     sql = '''SELECT t1.bug_number, CONVERT_TZ(t1.date_entered,\
 '+00:00','+03:00') AS date_entered, t2.status_bugs_c, t2.perform_c,
@@ -1192,7 +1192,7 @@ ORDER BY t1.bug_number
         if ticket[3]:
             # Типов работ может быть несколько, разделяются запятыми
             for perf in ticket[3].split(','):
-                perform = bug_perform_list.get(perf, perf)
+                perform = bug_perform_type.get(perf, perf)
                 ticket_perf_stat.setdefault(perform, 0)
                 ticket_perf_stat[perform] += 1
         else:
@@ -1366,7 +1366,7 @@ def fetch_tickets_bad_fill(date_begin, date_end):
     Определяет распределение тикетов по локализаци, по типам проведения работ,
     по ремени отсуствия сервиса у абонентов
     '''
-    from audit.crmdict import bug_perform_list, bug_localisation_list
+    from audit.crmdict import bug_perform_type, bug_localisation_type
 
     db = MySqlDB()
 
@@ -1399,7 +1399,7 @@ AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
         # Переводим выполненые работы из терминов CRM  в человеческий язык
         # Формируем список
         perform = [
-            bug_perform_list.get(perf, perf)
+            bug_perform_type.get(perf, perf)
             for perf in ticket[6].split(',')
             if (ticket[6] is not None or ticket[6] == '')
         ]
@@ -2664,7 +2664,7 @@ month="%s"' %
 def fetch_tickets_mass(date_begin, date_end):
     '''Функция получения списка массовых тикетов
     '''
-    from audit.crmdict import bug_localisation_list, bug_perform_list
+    from audit.crmdict import bug_localisation_type, bug_perform_type
 
     db = MySqlDB()
 
@@ -2718,7 +2718,7 @@ WHERE bug_id = '%s'
         ]
 
         perform = [
-            bug_perform_list.get(perform, perform)
+            bug_perform_type.get(perform, perform)
             for perform in bug[9].split(',')
         ] if bug[9] else []
 
