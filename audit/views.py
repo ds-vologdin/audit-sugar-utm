@@ -2583,17 +2583,15 @@ month="%s"' %
             if bug['localisation'].split(',').count(localization) > 0
         ]
 
-    # Формируем статистику по тикетам по каждой группе локализаций
-    statistic_bugs_localisations = []
-    for localization in bugs_localizations:
-        statistic_bugs_localisations.append(
-            {'localisation': localization,
-             'localisation_name': bug_localisation_list.get(localization,
-                                                            localization),
-             'statistic': calculate_bugs_no_service_statistic(
-                bugs_localizations[localization]),
-             }
-        )
+    # Формируем статистику по тикетам по каждой группе локализаций!!! переделать на генераторы
+    statistic_bugs_localisations = [
+        {'localisation': localization,
+         'localisation_name': bug_localisation_list.get(localization,
+                                                        localization),
+         'statistic': calculate_bugs_no_service_statistic(
+            bugs_localizations[localization]),
+         } for localization in bugs_localizations
+    ]
 
     statistics = {
         'all': statistic_all,
