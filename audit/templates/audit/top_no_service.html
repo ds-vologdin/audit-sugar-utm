@@ -54,6 +54,35 @@
                 <canvas id="kg_bad_pie_man" width="100" height="100"></canvas>
             </div>
         </div>
+        {% if statistic_bugs_localisations %}
+        <div class="row">
+            <h2>Статистика отсутствия сервиса в зависимости от типа локализации</h2>
+            <canvas id="statistic_bugs_localisations" width="400" height="200"></canvas>
+        </div>
+        <div class="row">
+            <h2>Статистика отсутствия сервиса в зависимости от типа локализации</h2>
+             <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Локализация</th>
+                        <th class="text-center">Количество тикетов</th>
+                        <th class="text-center">Медиана, ч.</th>
+                        <th class="text-center">Среднее арифметическое, ч.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for statistic in statistic_bugs_localisations %}
+                    <tr>
+                        <td>{{ statistic.localisation_name }}</td>
+                        <td class="text-center">{{ statistic.statistic.count }}</td>
+                        <td class="text-center">{{ statistic.statistic.mediana|floatformat }}</td>
+                        <td class="text-center">{{ statistic.statistic.avg|floatformat }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+             </table>
+        </div>
+        {% endif %}
         <p><a href="{{ request.path }}csv/">Сгенерировать csv</a></p>
         <p><a href="#man">Физические лица</a></p>
         <p><a name="company"></a></p> 
@@ -175,6 +204,36 @@ var duration = new Chart(ctx_duration, {
             label: "Физические лица",
             data: [{% for duration in durations_man %} {{ duration.count }}, {% endfor %}],
             backgroundColor: [{% for duration in durations_man %} "red", {% endfor %}],
+            },
+        ],
+    },
+});
+
+//labels_localisations = [{% for statistic in statistic_bugs_localisations %}"{{ statistic.localisation_name }}", {% endfor %}]
+labels_localisations = [{% for statistic in statistic_bugs_localisations %}"{{ statistic.localisation }}", {% endfor %}]
+
+var ctx_statistic_bugs_localisations = document.getElementById("statistic_bugs_localisations");
+var statistic_bugs_localisations = new Chart(ctx_statistic_bugs_localisations, {
+// The type of chart we want to create
+    type: 'bar',
+    // The data for our dataset
+    data: {
+        labels: labels_localisations,
+        datasets: [
+            {
+                label: "Количество тикетов",
+                data: [{% for statistic in statistic_bugs_localisations %} {{ statistic.statistic.count }}, {% endfor %}],
+                backgroundColor: [{% for statistic in statistic_bugs_localisations %} "blue", {% endfor %}],
+            },
+            {
+                label: "Медиана",
+                data: [{% for statistic in statistic_bugs_localisations %} {{ statistic.statistic.mediana|floatformat }}, {% endfor %}],
+                backgroundColor: [{% for statistic in statistic_bugs_localisations %} "red", {% endfor %}],
+            },
+            {
+                label: "Среднее арифметическое",
+                data: [{% for statistic in statistic_bugs_localisations %} {{ statistic.statistic.avg|floatformat }}, {% endfor %}],
+                backgroundColor: [{% for statistic in statistic_bugs_localisations %} "green", {% endfor %}],
             },
         ],
     },

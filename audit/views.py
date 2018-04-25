@@ -2453,7 +2453,7 @@ def fetch_bugs_no_service(db, date_begin, date_end):
     '''
     # Запрашиваем список тикетов с ненулевыми остановками сервиса
     sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.duration_bug_c, \
-t2.duration_min_c
+t2.duration_min_c, t2.perform_c, t2.localisation_c
 FROM sugar.bugs t1 LEFT JOIN sugar.bugs_cstm t2 ON t1.id = t2.id_c
 WHERE t1.date_entered BETWEEN '%s' AND '%s'
 AND (t2.duration_bug_c > 0 OR t2.duration_min_c > 0)
@@ -2465,6 +2465,8 @@ AND (t2.duration_bug_c > 0 OR t2.duration_min_c > 0)
          'number': bug[1],
          'date': bug[2],
          'duration': summ_hours_and_minutes(bug[3], bug[4]),
+         'perform': bug[5],
+         'localisation': bug[6],
          } for bug in bugs
     ]
     return bugs_dicts
@@ -2511,10 +2513,21 @@ WHERE t1.bug_id = '%s'
     return accounts.values()
 
 
+def calculate_bugs_no_service_statistic(bugs):
+    ''' Формирование статистики времени восстановление сервиса по тикетам '''
+    # Формируем список продолжительности остановок сервиса
+    durations = [bug['duration'] for bug in bugs]
+
+    # Рассчитываем статистику
+    return calculate_no_service_statistic_duration(durations)
+
+
 @login_required
 def top_no_service(request, year='', month='', last='week', csv_flag=False,):
     '''Функция вывода ТОП абонентов с максимальным простоем сервиса
     '''
+    from audit.crmdict import bug_localisation_list
+
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -2557,10 +2570,30 @@ month="%s"' %
         calculate_distr_duration_no_service(accounts_company_list)
     durations_man = calculate_distr_duration_no_service(accounts_man_list)
 
-    # Рассчитываем статистику по всем клиентам
+    # Рассчитываем статистику
     statistic_all = calculate_no_service_statistic(accounts)
     statistic_man = calculate_no_service_statistic(accounts_man_list)
     statistic_company = calculate_no_service_statistic(accounts_company_list)
+
+    # Разбиваем список тикетов по локализации
+    bugs_localizations = {}
+    for localization in bug_localisation_list:
+        bugs_localizations[localization] = [
+            bug for bug in bugs
+            if bug['localisation'].split(',').count(localization) > 0
+        ]
+
+    # Формируем статистику по тикетам по каждой группе локализаций
+    statistic_bugs_localisations = []
+    for localization in bugs_localizations:
+        statistic_bugs_localisations.append(
+            {'localisation': localization,
+             'localisation_name': bug_localisation_list.get(localization,
+                                                            localization),
+             'statistic': calculate_bugs_no_service_statistic(
+                bugs_localizations[localization]),
+             }
+        )
 
     statistics = {
         'all': statistic_all,
@@ -2619,6 +2652,7 @@ month="%s"' %
                'durations_man': durations_man,
                'statistics': statistics,
                'statistics_periods': statistics_periods,
+               'statistic_bugs_localisations': statistic_bugs_localisations,
                'date_begin': date_begin,
                'date_end': date_end,
                'months': months_report,
@@ -2922,8 +2956,8 @@ month="%s"' %
     return render(request, 'audit/survey.html', context)
 
 
-def calculate_connections_statistic(connections_dict, date_begin=None,
-                              date_end=None):
+def calculate_connections_statistic(
+        connections_dict, date_begin=None, date_end=None):
     '''Рассчитываем статистику по плану подключений
     '''
     from audit.crmdict import connection_type
