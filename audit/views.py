@@ -1181,7 +1181,7 @@ ORDER BY t1.bug_number
         if ticket[4]:
             # Локализаций может быть несколько, разделяются запятыми
             for loc in ticket[4].split(','):
-                localization = bug_localisation_list.get(loc, loc)
+                localization = bug_localisation_type.get(loc, loc)
                 ticket_local_stat.setdefault(localization, 0)
                 ticket_local_stat[localization] += 1
         else:
@@ -1391,7 +1391,7 @@ AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
         # Переводим локализации из терминов CRM в человеческий язык
         # Формируем список
         localization = [
-            bug_localisation_list.get(loc, loc)
+            bug_localisation_type.get(loc, loc)
             for loc in ticket[7].split(',')
             if (ticket[7] is not None or ticket[7] == '')
         ]
@@ -2526,7 +2526,7 @@ def calculate_bugs_no_service_statistic(bugs):
 def top_no_service(request, year='', month='', last='week', csv_flag=False,):
     '''Функция вывода ТОП абонентов с максимальным простоем сервиса
     '''
-    from audit.crmdict import bug_localisation_list
+    from audit.crmdict import bug_localisation_type
 
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
@@ -2577,16 +2577,16 @@ month="%s"' %
 
     # Разбиваем список тикетов по локализации
     bugs_localizations = {}
-    for localization in bug_localisation_list:
+    for localization in bug_localisation_type:
         bugs_localizations[localization] = [
             bug for bug in bugs
             if bug['localisation'].split(',').count(localization) > 0
         ]
 
-    # Формируем статистику по тикетам по каждой группе локализаций!!! переделать на генераторы
+    # Формируем статистику по тикетам по каждой группе локализаций
     statistic_bugs_localisations = [
         {'localisation': localization,
-         'localisation_name': bug_localisation_list.get(localization,
+         'localisation_name': bug_localisation_type.get(localization,
                                                         localization),
          'statistic': calculate_bugs_no_service_statistic(
             bugs_localizations[localization]),
@@ -2723,7 +2723,7 @@ WHERE bug_id = '%s'
         ] if bug[9] else []
 
         localisation = [
-            bug_localisation_list.get(loc, loc)
+            bug_localisation_type.get(loc, loc)
             for loc in bug[10].split(',')
         ] if bug[10] else []
 
@@ -3011,8 +3011,7 @@ def calculate_connections_statistic_periods(connections, periods):
 
 
 def fetch_connections(date_begin, date_end):
-    '''Получить работы из плана работ
-    '''
+    ''' Получить работы из плана работ CRM '''
     from audit.crmdict import connection_status, connection_type
 
     db = MySqlDB()
@@ -3053,14 +3052,41 @@ ORDER BY t2.date_connection_c
          'channel_speed': con[14],
          'comment_mount': con[15],
          } for con in connections]
+
+    # Формируем список изменений "даты подключения" в каждой записи
+    for connection in connections_dict:
+        sql = '''SELECT date_created, \
+CONCAT(t2.first_name, ' ', t2.last_name), \
+before_value_string, after_value_string
+FROM sugar.con_p_connections_plan_audit t1
+LEFT JOIN users t2 ON t1.created_by = t2.id
+WHERE t1.parent_id = '%s' AND t1.field_name = 'date_connection_c'
+        ''' % connection['id']
+
+        modified_dates = db.sqlQuery(sql)
+
+        if len(modified_dates) == 0:
+            connection['modified_dates'] = []
+            continue
+
+        connection['modified_dates'] = [
+            {
+                'modified_date': modified_date[0],
+                'modified_user': modified_date[1],
+                'befor_date': modified_date[2],
+                'after_date': modified_date[3],
+            } for modified_date in modified_dates
+        ]
+
     return connections_dict
 
 
 @login_required
 def connections_report(request, year='', month='', last='week',
                        csv_flag=False,):
-    '''Функция генерации отчёта по плану работ
-    '''
+    ''' Функция генерации отчёта по плану работ '''
+    from itertools import groupby
+
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
                    'error': 'Не хватает прав!'
@@ -3072,8 +3098,6 @@ def connections_report(request, year='', month='', last='week',
 month="%s"' %
         (request.user, connections_report.__name__, last, year, month)
     )
-
-    from itertools import groupby
 
     # Формируем даты начала и конца периода
     date_begin, date_end = get_report_begin_end_date(year, month, last)
@@ -3130,24 +3154,32 @@ month="%s"' %
              'stat': stat_period}
         )
 
+    # Выбираем отчёты с изменнённой датой проведения работ
+    connections_whith_changed_dates = [
+        connection for connection in connections_active
+        if connection.get('modified_dates', []) != []
+    ]
+
     # Формируем переменные для меню шаблона
     months_report = get_last_months(last=12)
     years_report = get_last_years(last=5)
     type_report = get_type_report(year=year, month=month)
 
-    context = {'connections': connections_active,
-               'connections_del': connections_del,
-               'statistics': statistics,
-               'statistics_period': statistics_period,
-               'statistics_type_period': statistics_type_period,
-               'statistics_manager_period': statistics_manager_period,
-               'date_begin': date_begin,
-               'date_end': date_end,
-               'months': months_report,
-               'years': years_report,
-               'type': type_report,
-               'menu_url': '/audit/connections/',
-               }
+    context = {
+        'connections': connections_active,
+        'connections_del': connections_del,
+        'connections_whith_changed_dates': connections_whith_changed_dates,
+        'statistics': statistics,
+        'statistics_period': statistics_period,
+        'statistics_type_period': statistics_type_period,
+        'statistics_manager_period': statistics_manager_period,
+        'date_begin': date_begin,
+        'date_end': date_end,
+        'months': months_report,
+        'years': years_report,
+        'type': type_report,
+        'menu_url': '/audit/connections/',
+    }
     return render(request, 'audit/connections.html', context)
 
 

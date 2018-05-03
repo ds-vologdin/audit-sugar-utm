@@ -123,6 +123,46 @@
                 </div>
             </div>
         {% endif %}
+        {% if connections_whith_changed_dates %}
+            <div>
+                <p><a name="del"></a></p> 
+                <h3>Работы, перенесённые на другую дату</h3>
+                <a href='#modified_dates' class = "extremum-click">Открыть/скрыть информацию</a> <!-- Всё происходит при нажатии на ссылку -->
+                <div class="row extremum-slide" style="display: none;">
+                    <table class="table table-hover" >
+                        <thead>
+                        <tr>
+                            <th class="text-center">Дата выполнения</th>
+                            <th>Описание работ в плане</th>
+                            <th>Информация о переносе дат выполнения</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for con in connections_whith_changed_dates %}
+                            <tr>
+                                <td class="text-center">{{ con.date|date:'Y-m-d' }}</td>
+                                <td>
+                                    <p><b><a href="http://crm.kgts.su/sugarcrm/index.php?module=con_p_connections_plan&action=DetailView&record={{ con.id }}">{{ con.address }}</a></b></p>
+                                    <p>{{ con.type }}</p>
+                                    <p>{{ con.status }}</p>
+                                    <p>{{ con.name }}</p>
+                                    <p>{{ con.desc }}</p>
+                                </td>
+                                <td>
+                                    <ul>
+                                        <li>{{ con.date_entered|date:'Y-m-d' }} {{ con.create_by }} создал заявку на монтаж на {{ con.modified_dates.0.befor_date }} </li>
+                                    {% for modified in con.modified_dates %}
+                                        <li>{{ modified.modified_date|date:'Y-m-d' }} {{ modified.modified_user }} изменил дату заявки на монтаж с {{ modified.befor_date }} на {{ modified.after_date }}</li>
+                                    {% endfor %}
+                                    </ul>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock content %}
