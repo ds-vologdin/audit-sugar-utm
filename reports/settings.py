@@ -61,7 +61,13 @@ SECRET_KEY = '#z9g5m**p87_lds4!a@@_=drp!eo#&c=oeyvxcb$8vokk9=r0u'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.3.249', 'django', '192.168.128.43', '10.0.3.16']
+ALLOWED_HOSTS = [
+    '10.0.3.249',
+    'django',
+    '192.168.128.43',
+    '10.0.3.16',
+    '10.254.200.244'
+]
 
 
 # Application definition
