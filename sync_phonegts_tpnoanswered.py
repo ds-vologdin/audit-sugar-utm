@@ -114,12 +114,6 @@ LIMIT 1'''
         db=asterisk_db_config.get('DB'),
         use_unicode=True, charset="utf8"
     )
-    # host = "10.254.230.11"
-    # db = "phonebase"
-    # user = "bud_dev"
-    # passwd = "ltcznrf"
-    # phonebase_db = pymysql.connect(host=host, user=user, passwd=passwd,
-    #                                db=db, use_unicode=True, charset="utf8")
 
     # Если включена опция last, то с dateb мы должны брать невключительно
     comparison = '>='
