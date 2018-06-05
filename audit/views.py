@@ -18,6 +18,7 @@ from datetime import date, timedelta
 
 # Классы работы с базами CRM и UTM
 from audit.externdb import PgSqlDB, MySqlDB
+from . import externdb
 
 import logging
 
@@ -218,7 +219,8 @@ WHERE to_timestamp(payment_enter_date)>='%s'
 AND to_timestamp(payment_enter_date)<'%s' AND method = 5
 GROUP BY datep
 ORDER BY datep''' % (date_begin, date_end + timedelta(days=1))
-    pays_lists = db.sqlQuery(sql)
+    # pays_lists = db.sqlQuery(sql)
+    pays_lists = db.execute(sql).fetchall()
 
     pays_dicts = [
         {'date': pay[0], 'summ': pay[1], 'count': pay[2]}
@@ -299,7 +301,8 @@ FROM balance_history t1 LEFT JOIN users t2 ON t1.account_id = t2.basic_account
 WHERE to_timestamp(t1.date) = '%s' AND t2.login ~ '^\d\d\d\d\d$'
 AND t1.out_balance >= 0 and t1.out_balance < 15000
         ''' % date_begin
-        active_balance = db.sqlQuery(sql)
+        # active_balance = db.sqlQuery(sql)
+        active_balance = db.execute(sql).fetchall()
 
         # Смотрим средний баланс среди всех абонентов
         sql = '''SELECT  avg(t1.out_balance)
@@ -307,7 +310,8 @@ FROM balance_history t1 LEFT JOIN users t2 ON t1.account_id = t2.basic_account
 WHERE to_timestamp(t1.date) = '%s' AND t2.login ~ '^\d\d\d\d\d$'
 AND t1.out_balance > -15000 and t1.out_balance < 15000
         ''' % date_begin
-        all_balance = db.sqlQuery(sql)
+        # all_balance = db.sqlQuery(sql)
+        all_balance = db.execute(sql).fetchall()
 
         count, avg, summ = active_balance[0] if len(active_balance) == 1 \
             else (0, 0, 0)
@@ -345,7 +349,8 @@ month="%s"' %
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Получаем данные из БД UTM
-    db = PgSqlDB()
+    # db = PgSqlDB()
+    db = externdb.engine_utm
     pays = fetch_pays_from_utm(db, date_begin, date_end)
 
     # Формируем отчётные периоды (разбиваем date_begin - date_end на отрезки)
@@ -425,8 +430,8 @@ def fetch_users_block_month(date_start, date_stop):
     ''' Функция для получения данных по блокировке пользователей UTM
     в промежутке между date_start, date_stop
     '''
-    db = PgSqlDB()
-
+    # db = PgSqlDB()
+    db = externdb.engine_utm
     # Запрашиваем в БД список заблокированных пользователей
     q = '''SELECT DISTINCT t1.id, t1.login, t1.full_name, t1.actual_address,
 t1.mobile_telephone, to_timestamp(t3.start_date) dateblock
@@ -437,7 +442,8 @@ WHERE (to_timestamp(t3.start_date)>='%s' AND to_timestamp(t3.start_date)<'%s'
 AND to_timestamp(t3.expire_date)>'2030-01-01')
 AND t1.login ~ '^\d\d\d\d\d$'
 ORDER BY dateblock''' % (date_start, date_stop + timedelta(days=1))
-    blocks = db.sqlQuery(q)
+    # blocks = db.sqlQuery(q)
+    blocks = db.execute(q).fetchall()
 
     users_block = []
     # Получаем тарифы пользователя и формируем список словарей с информацией
@@ -450,7 +456,8 @@ LEFT JOIN service_links t2 ON t1.basic_account=t2.account_id
 LEFT JOIN services_data t3 ON t2.service_id=t3.id
 WHERE t1.id = '%i' AND t3.is_deleted = 0 AND t2.is_deleted = 0
 AND t1.is_deleted='0' AND not t3.id = 614''' % (block[0])
-        services = db.sqlQuery(q)
+        # services = db.sqlQuery(q)
+        services = db.execute(q).fetchall()
 
         service = ''
 
@@ -462,7 +469,8 @@ FROM tariffs_history t1
 LEFT JOIN users_accounts t2 ON t1.account_id = t2.account_id
 WHERE  t2.uid = %i
 ORDER BY unlink_date desc''' % block[0]
-            tarif_history = db.sqlQuery(q)
+            # tarif_history = db.sqlQuery(q)
+            tarif_history = db.execute(q).fetchall()
             service = tarif_history[0][0] if len(tarif_history) > 0 else ''
         else:
             # Есть активные сервисные связки
@@ -768,7 +776,8 @@ def fetch_hardwares_remove(date_stat):
     '''Получить из БД список оборудования на снятие
     '''
     from audit.crmdict import hardware_type_list, status_device
-    dbUTM = PgSqlDB()
+    # dbUTM = PgSqlDB()
+    db_utm = externdb.engine_utm
     # Выбираем из базы билинга всех заблокированных пользователей
     sql = '''SELECT DISTINCT ON (t1.id) t1.login, t1.full_name,
 t1.actual_address, t3.service_name, t1.mobile_telephone,
@@ -782,9 +791,11 @@ AND to_timestamp(t4.start_date)<'%s'
 AND to_timestamp(t4.expire_date)>'2030-01-01'
 ORDER BY t1.id''' % date_stat
 
-    users_block_lists = dbUTM.sqlQuery(sql)
+    # users_block_lists = dbUTM.sqlQuery(sql)
+    users_block_lists = db_utm.execute(sql).fetchall()
 
-    dbCrm = MySqlDB()
+    # dbCrm = MySqlDB()
+    db_crm = externdb.engine_crm
 
     # Нужно отсортировать по дате блокировки
     # Средствами postgres сортировать сложно из-за ограничений DISTINCT ON
@@ -813,7 +824,8 @@ LEFT JOIN accounts t3 ON t2.account_id_c = t3.id
 LEFT JOIN accounts_cstm t4 ON t3.id = t4.id_c
 WHERE t4.login_ph_c = '%s'
 ''' % user['login']
-        devices = dbCrm.sqlQuery(sql)
+        # devices = dbCrm.sqlQuery(sql)
+        devices = db_crm.execute(sql).fetchall()
         if len(devices) == 0:
             continue
         # Отсекаем клиентов, у которых стоит только WiFi
@@ -1169,7 +1181,8 @@ WHERE t1.date_entered >='%s'  AND t1.date_entered <='%s' AND t1.deleted = '0'
 ORDER BY t1.bug_number
     ''' % (date_begin, date_end)
 
-    tickets = db.sqlQuery(sql)
+    # tickets = db.sqlQuery(sql)
+    tickets = db.execute(sql).fetchall()
 
     ticket_local_stat = {}  # Словарь со статистикой по локализации тикетов
     # no_loc = 0  # Количество тикетов, у которых нет локализации
@@ -1239,7 +1252,8 @@ OR (t2.date_close_c IS NULL AND t2.status_bugs_c = 'open'))
 AND t1.deleted = 0
     ''' % (date_report.strftime('%Y-%m-%d'), date_report.strftime('%Y-%m-%d'))
 
-    tickets = db.sqlQuery(sql)
+    # tickets = db.sqlQuery(sql)
+    tickets = db.execute(sql).fetchall()
 
     # group_stats используется для формирования статистики открытых тикетов
     # по каждой группе
@@ -1257,7 +1271,8 @@ AND t1.deleted = 0
     ''' % ((date_report - timedelta(days=1)).strftime('%Y-%m-%d'),
            date_report.strftime('%Y-%m-%d'))
 
-    count_ticket_yesterday_list = db.sqlQuery(sql)
+    # count_ticket_yesterday_list = db.sqlQuery(sql)
+    count_ticket_yesterday_list = db.execute(sql).fetchall()
     count_ticket_yesterday = \
         count_ticket_yesterday_list[0][0] \
         if len(count_ticket_yesterday_list) == 1 else 0
@@ -1311,7 +1326,8 @@ month="%s"' %
     )
 
     # Коннектимся к БД CRM
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     # Формируем даты начала и конца периода
     date_begin, date_end = get_report_begin_end_date(year, month, last)
@@ -1368,7 +1384,8 @@ def fetch_tickets_bad_fill(date_begin, date_end):
     '''
     from audit.crmdict import bug_perform_type, bug_localisation_type
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     sql = '''SELECT t1.id, t1.bug_number, CONVERT_TZ(t1.date_entered,'+00:00',\
 '+03:00'),
@@ -1384,7 +1401,8 @@ OR t2.localisation_c = 'none')
 AND NOT t2.status_bugs_c = 'open' AND t1.deleted = 0
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    tickets = db.sqlQuery(sql)
+    # tickets = db.sqlQuery(sql)
+    tickets = db.execute(sql).fetchall()
 
     tickets_dicts = []
     for ticket in tickets:
@@ -1726,7 +1744,8 @@ month="%s"' %
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     # Ищем в базе ремонты
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     sql = '''SELECT t1.name, t1.description, t2.comment_c, t3.last_name,
 t2.address_c, t4.name, t2.account_id_c, t2.status_c, t2.date_of_completion_c,
@@ -1739,7 +1758,8 @@ AND t1.deleted = 0
 ORDER BY t2.date_of_completion_c DESC
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    repairs = db.sqlQuery(sql)
+    # repairs = db.sqlQuery(sql)
+    repairs = db.execute(sql).fetchall()
 
     repairs_dub_dicts = []
 
@@ -1771,7 +1791,8 @@ ORDER BY t2.date_of_completion_c DESC
         ''' % (repair_dict['date'] - timedelta(days=30*6), repair_dict['date'],
                repair_dict['id'], repair_dict['account_id'])
 
-        repairs_old = db.sqlQuery(sql)
+        # repairs_old = db.sqlQuery(sql)
+        repairs_old = db.execute(sql).fetchall()
 
         if len(repairs_old) == 0:
             # повторный ремонтов нет - переходим к следующей записи
@@ -1800,7 +1821,8 @@ ORDER BY t1.bug_number DESC
         ''' % (repair_dict['account_id'],
                repair_dict['date'] - timedelta(days=365))
 
-        bugs = db.sqlQuery(sql)
+        # bugs = db.sqlQuery(sql)
+        bugs = db.execute(sql).fetchall()
         bugs_dicts = [
             {'number': bug[0],
              'date': bug[1],
@@ -1910,9 +1932,10 @@ AND t1.deleted = 0
 ORDER BY t2.date_of_completion_c DESC
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
-    repairs = db.sqlQuery(sql)
+    repairs = db.execute(sql).fetchall()
 
     repairs_list = [
         {'name': repair[0],
@@ -1940,9 +1963,10 @@ ORDER BY t2.date_of_completion_c DESC
 
     # Разбиваем работы по исполнителям и считаем статистику по каждому из них
     def sort_user(x): return x.get('user')
-    for k, g in groupby(sorted(repairs_list, key=sort_user), sort_user):
-        repairs_man = list(g)
-        repairs_man_stat[k] = \
+    for user, repairs_man in groupby(
+        sorted(repairs_list, key=sort_user), sort_user
+    ):
+        repairs_man_stat[user] = \
             calculate_repairs_statistic_periods(repairs_man, periods)
 
     # Разбиваем работы по категориям работ и считаем по каждой статистику
@@ -1950,10 +1974,10 @@ ORDER BY t2.date_of_completion_c DESC
     repairs_cat_work_stat['all'] = stat_period_all
 
     def sort_cat_work(x): return x.get('cat_work')
-    for k, g in groupby(sorted(repairs_list, key=sort_cat_work),
-                        sort_cat_work):
-        repairs_cat_work = list(g)
-        repairs_cat_work_stat[k] = calculate_repairs_statistic_periods(
+    for category, repairs_cat_work in groupby(
+        sorted(repairs_list, key=sort_cat_work), sort_cat_work
+    ):
+        repairs_cat_work_stat[category] = calculate_repairs_statistic_periods(
             repairs_cat_work, periods
         )
 
@@ -2012,9 +2036,11 @@ GROUP BY t3.account_id
 ORDER BY count_bug DESC
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
-    accounts = db.sqlQuery(sql)
+    # accounts = db.sqlQuery(sql)
+    accounts = db.execute(sql).fetchall()
     accounts_many_bugs_dicts = [
         {'account': account[0],
          'address': account[1],
@@ -2031,7 +2057,8 @@ LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
 WHERE t3.account_id = '%s'
 ORDER BY t1.bug_number DESC
         ''' % (account['account_id'])
-        bugs = db.sqlQuery(sql)
+        # bugs = db.sqlQuery(sql)
+        bugs = db.execute(sql).fetchall()
         # Свежие тикеты
         account['bugs'] = [
             {'number': bug[0],
@@ -2047,12 +2074,41 @@ ORDER BY t1.bug_number DESC
              } for bug in bugs if bug[1].date() < date_begin
         ]
 
-    context = {'accounts': accounts_many_bugs_dicts,
-               'date_begin': date_begin,
-               'date_end': date_end,
-               'menu_url': '/audit/top_tickets/',
-               }
+    context = {
+        'accounts': accounts_many_bugs_dicts,
+        'date_begin': date_begin,
+        'date_end': date_end,
+        'menu_url': '/audit/top_tickets/',
+    }
     return render(request, 'audit/top_tickets.html', context)
+
+
+def is_not_local_phone(phone):
+    local_phone = (
+        '226002', '226333', '227485', '227012', '226012', '227081', '226081'
+    )
+    return phone not in local_phone
+
+
+def fetch_bugs_from_account(db, account_id):
+    if not account_id:
+        return []
+    sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
+FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
+LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
+WHERE t3.account_id = '{}'
+ORDER BY t1.bug_number DESC
+    '''.format(account_id)
+
+    bugs = db.execute(sql).fetchall()
+    # Свежие тикеты
+    bugs = [
+        {'number': bug[0],
+         'date': bug[1],
+         'id': bug[2],
+         } for bug in bugs
+    ]
+    return bugs
 
 
 @login_required
@@ -2072,16 +2128,18 @@ def top_calls(request, year='', month='', last='month', csv_flag=False):
         return render(request, 'audit/error.html', context)
 
     logger.info(
-            'user "%s" run function %s whith arguments last="%s" year="%s" \
-month="%s"' %
-            (request.user, top_calls.__name__, last, year, month)
-        )
-
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
+month="%s"' % (request.user, top_calls.__name__, last, year, month)
+    )
     # Формируем даты начала и конца периода
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
-    # Запрашиваем список телефонных номеров с количеством вонков в саппорт
-    db = MySqlDB()
+    # Запрашиваем список телефонных номеров с количеством звонков в саппорт
+    # db = MySqlDB()
+    db = externdb.engine_crm
+
+# в sqlalchemy не работает t1.name LIKE "%226333%"!!!!!!
+
     sql = '''SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(t1.name,' ', -3),' ',1) \
 phone,
 count(t1.id) count_calls, t2.accounts_calls_1accounts_ida account_id, t3.name
@@ -2090,48 +2148,34 @@ ON t1.id = t2.accounts_calls_1calls_idb
 LEFT JOIN accounts t3 ON t2.accounts_calls_1accounts_ida = t3.id
 WHERE t1.direction = 'Inbound' AND t1.status = 'autoheld'
 AND t1.created_by = "9daf7540-986e-8385-7040-55b63cc60145"
-AND t1.date_start BETWEEN "%s"  AND "%s"
-AND  NOT (t1.name LIKE "%%226333%%" OR t1.name LIKE "%%227485%%"
-OR t1.name LIKE "%%227012%%" OR t1.name LIKE "%%226012%%"
-OR t1.name LIKE "%%227081%%" OR t1.name LIKE "%%226081%%"
-OR SUBSTRING_INDEX(SUBSTRING_INDEX(t1.name,' ', -3),' ',1) = "226002")
+AND t1.date_start BETWEEN "{}"  AND "{}"
 GROUP BY phone
 ORDER BY count_calls DESC
-    ''' % (date_begin, date_end)
+    '''.format(date_begin, date_end)
 
-    calls = db.sqlQuery(sql)
+    # calls = db.sqlQuery(sql)
+    calls = db.execute(sql).fetchall()
 
     calls_dicts = [
         {'number': call[0],
          'count_calls': call[1],
          'account_id': call[2],
          'account': call[3],
-         } for call in calls
+         'bugs': fetch_bugs_from_account(db, call[2])
+         } for call in calls if (is_not_local_phone(call[0]) and call[1] > 2)
     ]
     for call in calls_dicts:
-        # Запрашиваем список тикетов по каждому абонету
-        sql = '''SELECT t1.bug_number, t1.date_entered, t1.id
-FROM bugs t1 LEFT JOIN bugs_cstm t2 ON t1.id = t2.id_c
-LEFT JOIN accounts_bugs t3 ON t3.bug_id = t1.id
-WHERE t3.account_id = '%s'
-ORDER BY t1.bug_number DESC
-        ''' % call['account_id']
-
-        bugs = db.sqlQuery(sql)
-        # Свежие тикеты
-        call['bugs'] = [
-            {'number': bug[0],
-             'date': bug[1],
-             'id': bug[2],
-             } for bug in bugs if bug[1].date() >= date_begin
+        # messages.info(request, 'bugs {}'.format(call['bugs']))
+        bugs = [
+            bug for bug in call['bugs'] if bug['date'].date() >= date_begin
         ]
-        # Старые тикеты
-        call['bugs_old'] = [
-            {'number': bug[0],
-             'date': bug[1],
-             'id': bug[2],
-             } for bug in bugs if bug[1].date() < date_begin
+        bugs_old = [
+            bug for bug in call['bugs'] if bug['date'].date() < date_begin
         ]
+        call.update({
+            'bugs': bugs,
+            'bugs_old': bugs_old,
+        })
 
     context = {'calls': calls_dicts,
                'date_begin': date_begin,
@@ -2215,7 +2259,8 @@ def find_account_in_link_bugs(account_id, links_dicts):
 def fetch_bugs_mass(date_begin, date_end):
     '''Получить список масовых тикетов
     '''
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
     # Получаем все тикеты за интересующий нас период
     sql = '''SELECT t1.id, LOWER(t1.description), t1.date_entered, \
 t1.bug_number
@@ -2224,14 +2269,16 @@ WHERE t1.date_entered BETWEEN '%s' AND '%s'
 AND NOT t1.description = ''
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    bugs = db.sqlQuery(sql)
+    # bugs = db.sqlQuery(sql)
+    bugs = db.execute(sql).fetchall()
 
     # Получаем всех контрагентов
     sql = '''SELECT t1.id, LOWER(t1.name)
 FROM sugar.accounts t1 LEFT JOIN sugar.accounts_cstm t2 ON t1.id = t2.id_c
 WHERE t2.status_acc_c= 'active' AND t2.company_acc_c = 1 AND t1.deleted = 0
     '''
-    accounts = db.sqlQuery(sql)
+    # accounts = db.sqlQuery(sql)
+    accounts = db.execute(sql).fetchall()
 
     # ищем массовые тикеты
     bugs_mass = []
@@ -2241,7 +2288,8 @@ WHERE t2.status_acc_c= 'active' AND t2.company_acc_c = 1 AND t1.deleted = 0
 FROM accounts_bugs t1 LEFT JOIN accounts t2 ON t1.account_id = t2.id
 WHERE t1.bug_id = '%s'
         ''' % (bug[0])
-        links = db.sqlQuery(sql)
+        # links = db.sqlQuery(sql)
+        links = db.execute(sql).fetchall()
         links_dicts = [
             {'id': link[0],
              'name': link[1],
@@ -2305,10 +2353,10 @@ def tickets_bad_fill_mass(request, year='', month='', last='week',
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
     logger.info(
-            'user "%s" run function %s whith arguments last="%s" year="%s" \
+        'user "%s" run function %s whith arguments last="%s" year="%s" \
 month="%s"' %
-            (request.user, tickets_bad_fill_mass.__name__, last, year, month)
-        )
+        (request.user, tickets_bad_fill_mass.__name__, last, year, month)
+    )
     # Запрашиваем список массовых тикетов
     bugs_mass = fetch_bugs_mass(date_begin, date_end)
 
@@ -2458,7 +2506,8 @@ FROM sugar.bugs t1 LEFT JOIN sugar.bugs_cstm t2 ON t1.id = t2.id_c
 WHERE t1.date_entered BETWEEN '%s' AND '%s'
 AND (t2.duration_bug_c > 0 OR t2.duration_min_c > 0)
     ''' % (date_begin, date_end)
-    bugs = db.sqlQuery(sql)
+    # bugs = db.sqlQuery(sql)
+    bugs = db.execute(sql).fetchall()
 
     bugs_dicts = [
         {'id': bug[0],
@@ -2486,7 +2535,8 @@ LEFT JOIN sugar.accounts t2 ON t1.account_id = t2.id
 LEFT JOIN sugar.accounts_cstm t3 ON t2.id = t3.id_c
 WHERE t1.bug_id = '%s'
         ''' % (bug['id'])
-        accounts_bugs = db.sqlQuery(sql)
+        # accounts_bugs = db.sqlQuery(sql)
+        accounts_bugs = db.execute(sql).fetchall()
 
         for account_bug in accounts_bugs:
             id_acc = account_bug[1]
@@ -2543,7 +2593,8 @@ month="%s"' %
     # Формируем даты начала и конца периода
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     # Запрашиваем перечень тикетов, в которой были зафиксированы
     # остановки сервиса
@@ -2666,7 +2717,8 @@ def fetch_tickets_mass(date_begin, date_end):
     '''
     from audit.crmdict import bug_localisation_type, bug_perform_type
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     sql = '''SELECT t1.id, t1.bug_number, t1.date_entered, t2.address_bugs_c,
 t1.name, t1.description, t2.status_bugs_c, t2.duration_bug_c,
@@ -2680,7 +2732,8 @@ LEFT JOIN sugar.accounts t4 ON t3.account_id = t4.id
 WHERE t1.date_entered BETWEEN '%s' AND '%s'
 GROUP BY t1.bug_number
     ''' % (date_begin, date_end + timedelta(days=1))
-    bugs = db.sqlQuery(sql)
+    # bugs = db.sqlQuery(sql)
+    bugs = db.execute(sql).fetchall()
 
     bugs_mass = []
     for bug in bugs:
@@ -2709,7 +2762,8 @@ FROM sugar.accounts t1
 LEFT JOIN sugar.accounts_bugs t2 ON t1.id = t2.account_id
 WHERE bug_id = '%s'
             ''' % bug[0]
-            accounts_list = db.sqlQuery(sql)
+            # accounts_list = db.sqlQuery(sql)
+            accounts_list = db.execute(sql).fetchall()
 
         # Формируем словарь, так удобнее для работы в шаблоне
         accounts_dicts = [
@@ -2785,7 +2839,8 @@ def fetch_survey(date_begin, date_end):
     '''Получить список (словарь) осмотров
     '''
     from audit.crmdict import status_survey, status_rs, status_ess
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     # Запрос перечня осмотров за заданный период
     sql = '''SELECT t1.id, t1.status, t2.status_rs_c,
@@ -2799,7 +2854,8 @@ WHERE t1.date_entered BETWEEN '%s' AND '%s' AND t1.deleted = 0
 ORDER BY manager, t1.date_entered;
     ''' % (date_begin, date_end + timedelta(days=1))
 
-    surveys = db.sqlQuery(sql)
+    # surveys = db.sqlQuery(sql)
+    surveys = db.execute(sql).fetchall()
 
     surveys_dict = [
         {'id': survey[0],
@@ -2864,8 +2920,8 @@ def calculate_survey_statistics_periods(surveys_dict, periods):
 
     # Группируем осмотры по менеджерам
     def sort_manager(x): return x.get('manager')
-    for k, g in groupby(surveys_dict, sort_manager):
-        statistics[k] = calculate_surveys_statistic(list(g))
+    for manager, surveys in groupby(surveys_dict, sort_manager):
+        statistics[manager] = calculate_surveys_statistic(list(surveys))
 
     # Считаем статистику по отчётным периодам
     statistics_periods = {}
@@ -2888,8 +2944,7 @@ def calculate_survey_statistics_periods(surveys_dict, periods):
     statistics_periods = {'all': statistics_all_managers_periods}
 
     # Считаем статистику открытых осмотров по каждому менеджеру
-    for manager, g in groupby(surveys_dict, sort_manager):
-        surveys_manager = list(g)
+    for manager, surveys_manager in groupby(surveys_dict, sort_manager):
         statistics_manager_periods = []
         for date_begin, date_end in periods:
             # Формируем срез осмоторов менеджера, попадающий под текущий период
@@ -3014,7 +3069,8 @@ def fetch_connections(date_begin, date_end):
     ''' Получить работы из плана работ CRM '''
     from audit.crmdict import connection_status, connection_type
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     # Запрос перечня осмотров за заданный период
     sql = '''SELECT t1.id, t1.name, t1.date_entered, t1.date_modified,
@@ -3031,7 +3087,8 @@ WHERE t2.date_connection_c BETWEEN '%s' AND '%s'
 ORDER BY t2.date_connection_c
     ''' % (date_begin, date_end)
 
-    connections = db.sqlQuery(sql)
+    # connections = db.sqlQuery(sql)
+    connections = db.execute(sql).fetchall()
 
     # Список работ без удалённых записей
     connections_dict = [
@@ -3063,7 +3120,8 @@ LEFT JOIN users t2 ON t1.created_by = t2.id
 WHERE t1.parent_id = '%s' AND t1.field_name = 'date_connection_c'
         ''' % connection['id']
 
-        modified_dates = db.sqlQuery(sql)
+        # modified_dates = db.sqlQuery(sql)
+        modified_dates = db.execute(sql).fetchall()
 
         if len(modified_dates) == 0:
             connection['modified_dates'] = []
@@ -3125,15 +3183,16 @@ month="%s"' %
     statistics_manager_period = []
 
     def sort_create_by(x): return x.get('create_by')
-    for k, g in groupby(sorted(connections_active, key=sort_create_by),
-                        sort_create_by):
-        connections_man = list(g)
+    for create_by, g in groupby(
+        sorted(connections_active, key=sort_create_by), sort_create_by
+    ):
+        connections_create_by = list(g)
         stat_period = calculate_connections_statistic_periods(
-            connections_man, periods
+            connections_create_by, periods
         )
         statistics_manager_period.append(
-            {'man': k,
-             'count': len(connections_man),
+            {'man': create_by,
+             'count': len(connections_create_by),
              'stat': stat_period}
         )
 
@@ -3143,13 +3202,15 @@ month="%s"' %
 
     # Группируем осмотры по типу
     def sort_type(x): return x.get('type')
-    for k, g in groupby(sorted(connections_active, key=sort_type), sort_type):
+    for type_connection, g in groupby(
+        sorted(connections_active, key=sort_type), sort_type
+    ):
         connections_type = list(g)
         stat_period = calculate_connections_statistic_periods(
             connections_type, periods
         )
         statistics_type_period.append(
-            {'type': k,
+            {'type': type_connection,
              'count': len(connections_type),
              'stat': stat_period}
         )
@@ -3157,7 +3218,7 @@ month="%s"' %
     # Выбираем отчёты с изменнённой датой проведения работ
     connections_whith_changed_dates = [
         connection for connection in connections_active
-        if connection.get('modified_dates', []) != []
+        if connection.get('modified_dates')
     ]
 
     # Формируем переменные для меню шаблона
@@ -3423,7 +3484,8 @@ LEFT JOIN sugar.accounts t4 ON t1.account_id_c = t4.id
 WHERE t1.deleted = 0 AND date_question BETWEEN '%s' AND '%s'
     ''' % (date_begin, date_end)
 
-    questions = db.sqlQuery(sql)
+    # questions = db.sqlQuery(sql)
+    questions = db.execute(sql).fetchall()
 
     # Формируем список словарей
     questions_dicts = [
@@ -3456,7 +3518,8 @@ LEFT JOIN bugs t2 ON t1.bug_id = t2.id
 WHERE t1.account_id = '%s'
 ORDER BY t2.bug_number DESC
     ''' % account
-    bugs = db.sqlQuery(sql)
+    # bugs = db.sqlQuery(sql)
+    bugs = db.execute(sql).fetchall()
     return [{'id': bug[0], 'number': bug[1]} for bug in bugs]
 
 
@@ -3480,7 +3543,8 @@ month="%s"' %
     # Формируем даты начала и конца периода
     date_begin, date_end = get_report_begin_end_date(year, month, last)
 
-    db = MySqlDB()
+    # db = MySqlDB()
+    db = externdb.engine_crm
 
     # Запрос перечня проведённых опросов
     questions = fetch_questions(db, date_begin, date_end)

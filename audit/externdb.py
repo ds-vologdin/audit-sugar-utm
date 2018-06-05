@@ -1,6 +1,41 @@
 import psycopg2
 import pymysql
+import logging
+from sqlalchemy import create_engine
+# from sqlalchemy.orm import sessionmaker, scoped_session
+
 from django.conf import settings
+
+
+engine_utm = create_engine(
+    'postgresql+psycopg2://{}:{}@{}:{}/{}'.format(
+        settings.DATABASES_UTM['user'],
+        settings.DATABASES_UTM['passwd'],
+        settings.DATABASES_UTM['host'],
+        settings.DATABASES_UTM['port'],
+        settings.DATABASES_UTM['db']
+    ),
+    echo=True,
+    pool_recycle=3600
+)
+logging.debug('Создали engine_utm')
+# session_factory_utm = sessionmaker(bind=engine_utm)
+# Session_utm = scoped_session(session_factory_utm)
+# session_utm = Session_utm()
+# logging.debug('Создали session')
+
+engine_crm = create_engine(
+    'mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(
+        settings.DATABASES_CRM['user'],
+        settings.DATABASES_CRM['passwd'],
+        settings.DATABASES_CRM['host'],
+        settings.DATABASES_CRM['port'],
+        settings.DATABASES_CRM['db']
+    ),
+    echo=True,
+    pool_recycle=3600
+)
+logging.debug('Создали engine_crm')
 
 
 class SqlDB:

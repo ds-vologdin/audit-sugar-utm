@@ -5,13 +5,13 @@
 {% if accounts %}
     <table class="table table-hover" >
         <thead>
-        <tr>
-            <th>Абонент</th>
-            <th>Адрес</th>
-            <th class="text-center">Количество тикетов (за отчётный период/ранее созданные)</th>
-            <th class="text-center" width='20%'>Тикеты за отчётный период</th>
-            <th class="text-center" width='20%'>Старые тикеты</th>
-        </tr>
+          <tr>
+              <th>Абонент</th>
+              <th>Адрес</th>
+              <th class="text-center">Количество тикетов (за отчётный период/ранее созданные)</th>
+              <th class="text-center" width='20%'>Тикеты за отчётный период</th>
+              <th class="text-center" width='20%'>Старые тикеты</th>
+          </tr>
         </thead>
     {% for account in accounts%}
         <tr>
@@ -23,7 +23,6 @@
                     {% for bug in account.bugs %}
                             <li><a href="http://crm.kgts.su/sugarcrm/index.php?module=Bugs&action=DetailView&record={{ bug.id }}">{{ bug.number }} {{bug.date|date:'Y-m-d'}}</a></li>
                     {% endfor %}
-                
                 </ul>
             </td>
             <td class="text-center">
@@ -46,6 +45,7 @@
             </td>
         </tr>
     {% endfor %}
+    </table>
 {% else %}
     <h2>Данных нет...</h2>
 {% endif %}
