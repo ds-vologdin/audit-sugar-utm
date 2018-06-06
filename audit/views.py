@@ -481,47 +481,69 @@ def fetch_users_block_month(date_start, date_stop):
     ''' Функция для получения данных по блокировке пользователей UTM
     в промежутке между date_start, date_stop
     '''
-    # db = PgSqlDB()
-    db = externdb.engine_utm
+    from audit.externdb import (
+        Users, BlocksInfo, ServiceLinks, ServicesData, TariffsHistory
+    )
     # Запрашиваем в БД список заблокированных пользователей
-    q = '''SELECT DISTINCT t1.id, t1.login, t1.full_name, t1.actual_address,
-t1.mobile_telephone, to_timestamp(t3.start_date) dateblock
-FROM users t1
-LEFT JOIN users_accounts t2 ON t1.id = t2.uid
-LEFT JOIN blocks_info t3 ON t3.account_id=t2.account_id
-WHERE (to_timestamp(t3.start_date)>='%s' AND to_timestamp(t3.start_date)<'%s'
-AND to_timestamp(t3.expire_date)>'2030-01-01')
-AND t1.login ~ '^\d\d\d\d\d$'
-ORDER BY dateblock''' % (date_start, date_stop + timedelta(days=1))
-    # blocks = db.sqlQuery(q)
-    blocks = db.execute(q).fetchall()
+    timestamp_begin = get_timestamp_from_date(date_start)
+    timestamp_end = get_timestamp_from_date(date_stop + timedelta(days=1))
+    timestamp_expire = get_timestamp_from_date(date(2030, 1, 1))
+    blocks = externdb.session_utm.query(
+        Users.id, Users.login, Users.full_name, Users.actual_address,
+        Users.mobile_telephone, BlocksInfo.start_date
+    ).join(
+        BlocksInfo,  Users.basic_account == BlocksInfo.account_id
+    ).filter(
+        BlocksInfo.start_date >= timestamp_begin
+    ).filter(
+        BlocksInfo.start_date < timestamp_end
+    ).filter(
+        BlocksInfo.expire_date > timestamp_expire
+    ).filter(
+        Users.login.op('~')('^\d\d\d\d\d$')
+    ).order_by(BlocksInfo.start_date).all()
+
+    users_id = [id for id, *block in blocks]
+
+    # Запрашиваем активные сервисные связки
+    services_users = externdb.session_utm.query(
+        Users.id, ServicesData.service_name, ServicesData.comment,
+        ServicesData.id
+    ).join(
+        ServiceLinks, Users.basic_account == ServiceLinks.account_id
+    ).join(
+        ServicesData, ServiceLinks.service_id == ServicesData.id
+    ).filter(
+        Users.id.in_(users_id)
+    ).filter(
+        ServicesData.is_deleted == 0
+    ).filter(
+        ServiceLinks.is_deleted == 0
+    ).filter(
+        Users.is_deleted == 0
+    ).filter(
+        ServicesData.id != 614
+    ).order_by(Users.id).all()
 
     users_block = []
     # Получаем тарифы пользователя и формируем список словарей с информацией
     # об ушёдшим в блок пользователям
     for block in blocks:
-        # Запрашиваем активную сервисную связку (хотим узнать тарифный план)
-        q = '''SELECT DISTINCT t3.service_name, t3.comment, t3.id
-FROM users t1
-LEFT JOIN service_links t2 ON t1.basic_account=t2.account_id
-LEFT JOIN services_data t3 ON t2.service_id=t3.id
-WHERE t1.id = '%i' AND t3.is_deleted = 0 AND t2.is_deleted = 0
-AND t1.is_deleted='0' AND not t3.id = 614''' % (block[0])
-        # services = db.sqlQuery(q)
-        services = db.execute(q).fetchall()
-
+        services = [
+            services_user for id, *services_user in services_users
+            if id == block[0]
+        ]
         service = ''
 
         if len(services) == 0:
-            # Активных сервисных связок нет, запрашиваем историю тарифов.
-            q = '''SELECT t1.tariff_name, to_timestamp(t1.unlink_date)\
-unlink_date
-FROM tariffs_history t1
-LEFT JOIN users_accounts t2 ON t1.account_id = t2.account_id
-WHERE  t2.uid = %i
-ORDER BY unlink_date desc''' % block[0]
-            # tarif_history = db.sqlQuery(q)
-            tarif_history = db.execute(q).fetchall()
+            # Активных сервисных связок нет, запрашиваем историю тарифов
+            tarif_history = externdb.session_utm.query(
+                TariffsHistory.tariff_name, TariffsHistory.unlink_date
+            ).join(
+                Users, TariffsHistory.account_id == Users.basic_account
+            ).filter(
+                Users.id == block[0]
+            ).order_by(TariffsHistory.unlink_date.desc()).all()
             service = tarif_history[0][0] if len(tarif_history) > 0 else ''
         else:
             # Есть активные сервисные связки
@@ -534,7 +556,7 @@ ORDER BY unlink_date desc''' % block[0]
                 'user': block[2],
                 'address': block[3],
                 'phone': block[4],
-                'date': block[5],
+                'date': datetime.fromtimestamp(block[5]),
                 'tarif': service,
             }
         )

@@ -40,6 +40,14 @@ BalanceHistory = Base.classes.balance_history
 logger.debug('Создали модель BalanceHistory')
 Users = Base.classes.users
 logger.debug('Создали модель Users')
+BlocksInfo = Base.classes.blocks_info
+logger.debug('Создали модель BlocksInfo')
+ServiceLinks = Base.classes.service_links
+logger.debug('Создали модель ServiceLinks')
+ServicesData = Base.classes.services_data
+logger.debug('Создали модель ServicesData')
+TariffsHistory = Base.classes.tariffs_history
+logger.debug('Создали модель TariffsHistory')
 
 engine_crm = create_engine(
     'mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(

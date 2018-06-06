@@ -44,10 +44,10 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'DEBUG',
         },
-        # 'sqlalchemy': {
-        #     'handlers': ['file'],
-        #     'level': 'WARNING',
-        # },
+        'sqlalchemy': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+        },
     },
 }
 
