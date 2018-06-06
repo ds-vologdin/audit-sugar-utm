@@ -2,7 +2,8 @@ import psycopg2
 import pymysql
 import logging
 from sqlalchemy import create_engine
-# from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 from django.conf import settings
 
@@ -19,10 +20,19 @@ engine_utm = create_engine(
     pool_recycle=3600
 )
 logging.debug('Создали engine_utm')
-# session_factory_utm = sessionmaker(bind=engine_utm)
-# Session_utm = scoped_session(session_factory_utm)
-# session_utm = Session_utm()
-# logging.debug('Создали session')
+
+Base = automap_base()
+
+session_factory_utm = sessionmaker(bind=engine_utm)
+Session_utm = scoped_session(session_factory_utm)
+session_utm = Session_utm()
+Base.query = Session_utm.query_property()
+logging.debug('Создали session')
+
+Base.prepare(engine_utm, reflect=True)
+
+PaymentTransactions = Base.classes.payment_transactions
+logging.debug('Создали модель PaymentTransactions')
 
 engine_crm = create_engine(
     'mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(

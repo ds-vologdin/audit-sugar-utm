@@ -14,10 +14,11 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from itertools import groupby
 
 # Классы работы с базами CRM и UTM
-from audit.externdb import PgSqlDB, MySqlDB
+# from audit.externdb import PgSqlDB, MySqlDB
 from . import externdb
 
 import logging
@@ -208,26 +209,49 @@ def index(request):
         return HttpResponseRedirect('/audit/login/')
 
 
+def group_pays_by_date(pays_raw):
+    if not pays_raw:
+        return []
+
+    pays_with_date = (
+        (date.fromtimestamp(timestamp), payment)
+        for timestamp, payment in pays_raw
+    )
+    pays_group = []
+    for date_pays, payments_gen in groupby(pays_with_date, lambda x: x[0]):
+        payments_map = map(lambda x: x[1], payments_gen)
+        payments_list = list(payments_map)
+        pays_group.append({
+            'date': date_pays,
+            'summ': sum(payments_list),
+            'count': len(payments_list),
+        })
+    return pays_group
+
+
 def fetch_pays_from_utm(db, date_begin, date_end):
     '''Получить данные из БД UTM
     '''
-# Запрос в базу
-    sql = '''SELECT (to_timestamp(payment_enter_date))::date as datep,
-sum(payment_absolute), count(payment_absolute)
-FROM payment_transactions
-WHERE to_timestamp(payment_enter_date)>='%s'
-AND to_timestamp(payment_enter_date)<'%s' AND method = 5
-GROUP BY datep
-ORDER BY datep''' % (date_begin, date_end + timedelta(days=1))
-    # pays_lists = db.sqlQuery(sql)
-    pays_lists = db.execute(sql).fetchall()
+    from audit.externdb import PaymentTransactions
 
-    pays_dicts = [
-        {'date': pay[0], 'summ': pay[1], 'count': pay[2]}
-        for pay in pays_lists
-    ]
+    date_begin_timestamp = datetime.combine(
+        date_begin, datetime.min.time()
+    ).timestamp()
+    date_end_timestamp = datetime.combine(
+        date_end, datetime.min.time()
+    ).timestamp()
+    pays_raw = externdb.session_utm.query(
+        PaymentTransactions.payment_enter_date,
+        PaymentTransactions.payment_absolute
+    ).filter(
+        PaymentTransactions.method == 5
+    ).filter(
+        PaymentTransactions.payment_enter_date >= date_begin_timestamp
+    ).filter(
+        PaymentTransactions.payment_enter_date < date_end_timestamp
+    ).all()
 
-    return pays_dicts
+    return group_pays_by_date(pays_raw)
 
 
 def calculate_pays_stat_periods(pays, report_periods):
@@ -1902,7 +1926,6 @@ def repairs_stat(request, year='', month='', last='month', csv_flag=False):
         last = 'month' - за последние 30 дней
         last = 'year' - за последний год
     '''
-    from itertools import groupby
     from audit.crmdict import repair_status, cat_work
 
     if not request.user.groups.filter(name__exact='tickets').exists():
@@ -2914,7 +2937,6 @@ def calculate_surveys_statistic(surveys):
 def calculate_survey_statistics_periods(surveys_dict, periods):
     '''Расчитываем статистику по осмотрам
     '''
-    from itertools import groupby
 
     statistics = {'all': calculate_surveys_statistic(surveys_dict)}
 
@@ -3143,7 +3165,6 @@ WHERE t1.parent_id = '%s' AND t1.field_name = 'date_connection_c'
 def connections_report(request, year='', month='', last='week',
                        csv_flag=False,):
     ''' Функция генерации отчёта по плану работ '''
-    from itertools import groupby
 
     if not request.user.groups.filter(name__exact='tickets').exists():
         context = {'user': request.user.username,
