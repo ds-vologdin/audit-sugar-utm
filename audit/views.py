@@ -16,12 +16,12 @@ from django.contrib.auth.decorators import login_required
 
 from datetime import date, timedelta, datetime
 from itertools import groupby
+import logging
+from sqlalchemy import func
 
 # Классы работы с базами CRM и UTM
 # from audit.externdb import PgSqlDB, MySqlDB
 from . import externdb
-
-import logging
 
 
 logger = logging.getLogger(__name__)
@@ -229,17 +229,21 @@ def group_pays_by_date(pays_raw):
     return pays_group
 
 
+def get_timestamp_from_date(date_current):
+    if not date_current:
+        return None
+    return datetime.combine(
+        date_current, datetime.min.time()
+    ).timestamp()
+
+
 def fetch_pays_from_utm(db, date_begin, date_end):
     '''Получить данные из БД UTM
     '''
     from audit.externdb import PaymentTransactions
 
-    date_begin_timestamp = datetime.combine(
-        date_begin, datetime.min.time()
-    ).timestamp()
-    date_end_timestamp = datetime.combine(
-        date_end, datetime.min.time()
-    ).timestamp()
+    date_begin_timestamp = get_timestamp_from_date(date_begin)
+    date_end_timestamp = get_timestamp_from_date(date_end)
     pays_raw = externdb.session_utm.query(
         PaymentTransactions.payment_enter_date,
         PaymentTransactions.payment_absolute
@@ -310,6 +314,7 @@ def calculate_pays_stat_periods(pays, report_periods):
 def fetch_balances_periods(db, report_periods):
     '''Функция расчёта баланса по заданным периодам
     '''
+    from audit.externdb import BalanceHistory, Users
     # Расчитываем только в случае если отчёт помесячный
     date_begin, date_end = report_periods[0]
     if (date_end - date_begin) < timedelta(days=28):
@@ -319,23 +324,45 @@ def fetch_balances_periods(db, report_periods):
     for date_begin, date_end in report_periods:
         # считаем сколько людей с положительным балансом перешло
         # на текущий месяц, какой у них средний баланс
-        sql = '''SELECT  count(t1.out_balance), avg(t1.out_balance),
-sum(t1.out_balance)
-FROM balance_history t1 LEFT JOIN users t2 ON t1.account_id = t2.basic_account
-WHERE to_timestamp(t1.date) = '%s' AND t2.login ~ '^\d\d\d\d\d$'
-AND t1.out_balance >= 0 and t1.out_balance < 15000
-        ''' % date_begin
-        # active_balance = db.sqlQuery(sql)
-        active_balance = db.execute(sql).fetchall()
+        timestamp_begin = get_timestamp_from_date(date_begin)
+        timestamp_end = get_timestamp_from_date(date_begin+timedelta(days=1))
+
+        active_balance = externdb.session_utm.query(
+            func.count(BalanceHistory.out_balance),
+            func.avg(BalanceHistory.out_balance),
+            func.sum(BalanceHistory.out_balance),
+        ).join(
+            Users, BalanceHistory.account_id == Users.basic_account
+        ).filter(
+            BalanceHistory.date >= timestamp_begin
+        ).filter(
+            BalanceHistory.date < timestamp_end
+        ).filter(
+            Users.login.op('~')('^\d\d\d\d\d$')
+        ).filter(
+            BalanceHistory.out_balance >= 0
+        ).filter(
+            BalanceHistory.out_balance < 15000
+        ).all()
 
         # Смотрим средний баланс среди всех абонентов
-        sql = '''SELECT  avg(t1.out_balance)
-FROM balance_history t1 LEFT JOIN users t2 ON t1.account_id = t2.basic_account
-WHERE to_timestamp(t1.date) = '%s' AND t2.login ~ '^\d\d\d\d\d$'
-AND t1.out_balance > -15000 and t1.out_balance < 15000
-        ''' % date_begin
-        # all_balance = db.sqlQuery(sql)
-        all_balance = db.execute(sql).fetchall()
+        all_balance = externdb.session_utm.query(
+            func.count(BalanceHistory.out_balance),
+            func.avg(BalanceHistory.out_balance),
+            func.sum(BalanceHistory.out_balance),
+        ).join(
+            Users, BalanceHistory.account_id == Users.basic_account
+        ).filter(
+            BalanceHistory.date >= timestamp_begin
+        ).filter(
+            BalanceHistory.date < timestamp_end
+        ).filter(
+            Users.login.op('~')('^\d\d\d\d\d$')
+        ).filter(
+            BalanceHistory.out_balance > -15000
+        ).filter(
+            BalanceHistory.out_balance < 15000
+        ).all()
 
         count, avg, summ = active_balance[0] if len(active_balance) == 1 \
             else (0, 0, 0)

@@ -8,6 +8,9 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from django.conf import settings
 
 
+logger = logging.getLogger(__name__)
+
+
 engine_utm = create_engine(
     'postgresql+psycopg2://{}:{}@{}:{}/{}'.format(
         settings.DATABASES_UTM['user'],
@@ -19,7 +22,7 @@ engine_utm = create_engine(
     echo=True,
     pool_recycle=3600
 )
-logging.debug('Создали engine_utm')
+logger.debug('Создали engine_utm')
 
 Base = automap_base()
 
@@ -27,12 +30,16 @@ session_factory_utm = sessionmaker(bind=engine_utm)
 Session_utm = scoped_session(session_factory_utm)
 session_utm = Session_utm()
 Base.query = Session_utm.query_property()
-logging.debug('Создали session')
+logger.debug('Создали session')
 
 Base.prepare(engine_utm, reflect=True)
 
 PaymentTransactions = Base.classes.payment_transactions
-logging.debug('Создали модель PaymentTransactions')
+logger.debug('Создали модель PaymentTransactions')
+BalanceHistory = Base.classes.balance_history
+logger.debug('Создали модель BalanceHistory')
+Users = Base.classes.users
+logger.debug('Создали модель Users')
 
 engine_crm = create_engine(
     'mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8'.format(
@@ -45,7 +52,7 @@ engine_crm = create_engine(
     echo=True,
     pool_recycle=3600
 )
-logging.debug('Создали engine_crm')
+logger.debug('Создали engine_crm')
 
 
 class SqlDB:

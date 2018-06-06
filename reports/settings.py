@@ -33,18 +33,21 @@ LOGGING = {
             'formatter': 'simple'
         },
         'file': {
-            'level': 'INFO',
+            # 'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': '/var/log/django/django.log',
             'formatter': 'verbose',
-
         },
     },
     'loggers': {
         'audit': {
             'handlers': ['file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
         },
+        # 'sqlalchemy': {
+        #     'handlers': ['file'],
+        #     'level': 'WARNING',
+        # },
     },
 }
 
