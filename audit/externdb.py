@@ -1,7 +1,7 @@
 import psycopg2
 import pymysql
 import logging
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -24,7 +24,12 @@ engine_utm = create_engine(
 )
 logger.debug('Создали engine_utm')
 
-Base = automap_base()
+metadata = MetaData()
+metadata.reflect(engine_utm, only=[
+    'payment_transactions', 'balance_history', 'users', 'blocks_info',
+    'service_links', 'services_data', 'tariffs_history'
+])
+Base = automap_base(metadata=metadata)
 
 session_factory_utm = sessionmaker(bind=engine_utm)
 Session_utm = scoped_session(session_factory_utm)
@@ -32,7 +37,7 @@ session_utm = Session_utm()
 Base.query = Session_utm.query_property()
 logger.debug('Создали session')
 
-Base.prepare(engine_utm, reflect=True)
+Base.prepare()
 
 PaymentTransactions = Base.classes.payment_transactions
 logger.debug('Создали модель PaymentTransactions')
